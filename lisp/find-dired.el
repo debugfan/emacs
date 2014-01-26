@@ -1,6 +1,6 @@
 ;;; find-dired.el --- run a `find' command and dired the output
 
-;; Copyright (C) 1992, 1994-1995, 2000-2014 Free Software Foundation,
+;; Copyright (C) 1992, 1994-1995, 2000-2013 Free Software Foundation,
 ;; Inc.
 
 ;; Author: Roland McGrath <roland@gnu.org>,
@@ -210,15 +210,13 @@ use in place of \"-ls\" as the final argument."
     (insert "  " dir ":\n")
     ;; Make second line a ``find'' line in analogy to the ``total'' or
     ;; ``wildcard'' line.
-    (let ((point (point)))
-      (insert "  " args "\n")
-      (dired-insert-set-properties point (point)))
+    (insert "  " args "\n")
     (setq buffer-read-only t)
     (let ((proc (get-buffer-process (current-buffer))))
       (set-process-filter proc (function find-dired-filter))
       (set-process-sentinel proc (function find-dired-sentinel))
       ;; Initialize the process marker; it is used by the filter.
-      (move-marker (process-mark proc) (point) (current-buffer)))
+      (move-marker (process-mark proc) 1 (current-buffer)))
     (setq mode-line-process '(":%s"))))
 
 (defun kill-find ()
@@ -339,11 +337,10 @@ use in place of \"-ls\" as the final argument."
 	  (let ((buffer-read-only nil))
 	    (save-excursion
 	      (goto-char (point-max))
-	      (let ((point (point)))
-		(insert "\n  find " state)
-		(forward-char -1)		;Back up before \n at end of STATE.
-		(insert " at " (substring (current-time-string) 0 19))
-		(dired-insert-set-properties point (point)))
+	      (insert "\n  find " state)
+	      (forward-char -1)		;Back up before \n at end of STATE.
+	      (insert " at " (substring (current-time-string) 0 19))
+	      (forward-char 1)
 	      (setq mode-line-process
 		    (concat ":"
 			    (symbol-name (process-status proc))))

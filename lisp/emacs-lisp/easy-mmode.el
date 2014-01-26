@@ -1,6 +1,6 @@
 ;;; easy-mmode.el --- easy definition for major and minor modes
 
-;; Copyright (C) 1997, 2000-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 2000-2013 Free Software Foundation, Inc.
 
 ;; Author: Georges Brun-Cottan <Georges.Brun-Cottan@inria.fr>
 ;; Maintainer: Stefan Monnier <monnier@gnu.org>
@@ -296,12 +296,6 @@ the mode if ARG is omitted or nil, and toggle it if ARG is `toggle'.
        ;; up-to-here.
        :autoload-end
 
-       (defvar ,hook nil
-         ,(format "Hook run after entering or leaving `%s'.
-No problems result if this variable is not bound.
-`add-hook' automatically binds it.  (This is true for all hook variables.)"
-                  mode))
-
        ;; Define the minor-mode keymap.
        ,(unless (symbolp keymap)	;nil is also a symbol.
 	  `(defvar ,keymap-sym
@@ -347,14 +341,9 @@ If MODE's set-up depends on the major mode in effect when it was
 enabled, then disabling and reenabling MODE should make MODE work
 correctly with the current major mode.  This is important to
 prevent problems with derived modes, that is, major modes that
-call another major mode in their body.
-
-When a major mode is initialized, MODE is actually turned on just
-after running the major mode's hook.  However, MODE is not turned
-on if the hook has explicitly disabled it."
+call another major mode in their body."
   (declare (doc-string 2))
   (let* ((global-mode-name (symbol-name global-mode))
-	 (mode-name (symbol-name mode))
 	 (pretty-name (easy-mmode-pretty-mode-name mode))
 	 (pretty-global-name (easy-mmode-pretty-mode-name global-mode))
 	 (group nil)
@@ -365,8 +354,6 @@ on if the hook has explicitly disabled it."
 	 (MODE-check-buffers
 	  (intern (concat global-mode-name "-check-buffers")))
 	 (MODE-cmhh (intern (concat global-mode-name "-cmhh")))
-	 (minor-MODE-hook (intern (concat mode-name "-hook")))
-	 (MODE-set-explicitly (intern (concat mode-name "-set-explicitly")))
 	 (MODE-major-mode (intern (concat (symbol-name mode) "-major-mode")))
 	 keyw)
 
@@ -410,31 +397,24 @@ See `%s' for more information on %s."
 	     (progn
 	       (add-hook 'after-change-major-mode-hook
 			 ',MODE-enable-in-buffers)
+	       (add-hook 'change-major-mode-after-body-hook
+			 ',MODE-enable-in-buffers)
 	       (add-hook 'find-file-hook ',MODE-check-buffers)
 	       (add-hook 'change-major-mode-hook ',MODE-cmhh))
 	   (remove-hook 'after-change-major-mode-hook ',MODE-enable-in-buffers)
+	   (remove-hook 'change-major-mode-after-body-hook
+			',MODE-enable-in-buffers)
 	   (remove-hook 'find-file-hook ',MODE-check-buffers)
 	   (remove-hook 'change-major-mode-hook ',MODE-cmhh))
 
 	 ;; Go through existing buffers.
 	 (dolist (buf (buffer-list))
 	   (with-current-buffer buf
-	     (if ,global-mode (funcall #',turn-on) (when ,mode (,mode -1))))))
+	     (if ,global-mode (,turn-on) (when ,mode (,mode -1))))))
 
        ;; Autoloading define-globalized-minor-mode autoloads everything
        ;; up-to-here.
        :autoload-end
-
-       ;; MODE-set-explicitly is set in MODE-set-explicitly and cleared by
-       ;; kill-all-local-variables.
-       (defvar-local ,MODE-set-explicitly nil)
-       (defun ,MODE-set-explicitly ()
-         (setq ,MODE-set-explicitly t))
-       (put ',MODE-set-explicitly 'definition-name ',global-mode)
-
-       ;; A function which checks whether MODE has been disabled in the major
-       ;; mode hook which has just been run.
-       (add-hook ',minor-MODE-hook ',MODE-set-explicitly)
 
        ;; List of buffers left to process.
        (defvar ,MODE-buffers nil)
@@ -444,14 +424,14 @@ See `%s' for more information on %s."
 	 (dolist (buf ,MODE-buffers)
 	   (when (buffer-live-p buf)
 	     (with-current-buffer buf
-               (unless ,MODE-set-explicitly
-		 (unless (eq ,MODE-major-mode major-mode)
-		   (if ,mode
-		       (progn
-			 (,mode -1)
-			 (funcall #',turn-on))
-		     (funcall #',turn-on))))
-	       (setq ,MODE-major-mode major-mode)))))
+               (unless (eq ,MODE-major-mode major-mode)
+                 (if ,mode
+                     (progn
+                       (,mode -1)
+                       (,turn-on)
+                       (setq ,MODE-major-mode major-mode))
+                   (,turn-on)
+                   (setq ,MODE-major-mode major-mode)))))))
        (put ',MODE-enable-in-buffers 'definition-name ',global-mode)
 
        (defun ,MODE-check-buffers ()
@@ -470,9 +450,18 @@ See `%s' for more information on %s."
 ;;; easy-mmode-defmap
 ;;;
 
-(defun easy-mmode-set-keymap-parents (m parents)
-  (set-keymap-parent
-   m (if (cdr parents) (make-composed-keymap parents) (car parents))))
+(eval-and-compile
+  (if (fboundp 'set-keymap-parents)
+      (defalias 'easy-mmode-set-keymap-parents 'set-keymap-parents)
+    (defun easy-mmode-set-keymap-parents (m parents)
+      (set-keymap-parent
+       m
+       (cond
+        ((not (consp parents)) parents)
+        ((not (cdr parents)) (car parents))
+        (t (let ((m (copy-keymap (pop parents))))
+             (easy-mmode-set-keymap-parents m parents)
+             m)))))))
 
 ;;;###autoload
 (defun easy-mmode-define-keymap (bs &optional name m args)
@@ -589,7 +578,7 @@ BODY is executed after moving to the destination location."
                       (prog1 (or (< (- (point-max) (point-min)) (buffer-size)))
                         (widen))))
                  ,body
-                 (when was-narrowed (funcall #',narrowfun)))))))
+                 (when was-narrowed (,narrowfun)))))))
     (unless name (setq name base-name))
     `(progn
        (defun ,next-sym (&optional count)
@@ -601,13 +590,13 @@ BODY is executed after moving to the destination location."
            ,(funcall when-narrowed
              `(if (not (re-search-forward ,re nil t count))
                   (if (looking-at ,re)
-                      (goto-char (or ,(if endfun `(funcall #',endfun)) (point-max)))
+                      (goto-char (or ,(if endfun `(,endfun)) (point-max)))
                     (user-error "No next %s" ,name))
                 (goto-char (match-beginning 0))
-                (when (and (eq (current-buffer) (window-buffer))
+                (when (and (eq (current-buffer) (window-buffer (selected-window)))
                            (called-interactively-p 'interactive))
                   (let ((endpt (or (save-excursion
-                                     ,(if endfun `(funcall #',endfun)
+                                     ,(if endfun `(,endfun)
                                         `(re-search-forward ,re nil t 2)))
                                    (point-max))))
                     (unless (pos-visible-in-window-p endpt nil t)

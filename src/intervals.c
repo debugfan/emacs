@@ -1,5 +1,5 @@
 /* Code for doing intervals.
-   Copyright (C) 1993-1995, 1997-1998, 2001-2014 Free Software
+   Copyright (C) 1993-1995, 1997-1998, 2001-2013 Free Software
    Foundation, Inc.
 
 This file is part of GNU Emacs.
@@ -40,6 +40,8 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <config.h>
 
+#define INTERVALS_INLINE EXTERN_INLINE
+
 #include <intprops.h>
 #include "lisp.h"
 #include "intervals.h"
@@ -60,7 +62,16 @@ static INTERVAL reproduce_tree (INTERVAL, INTERVAL);
 
 /* Utility functions for intervals.  */
 
-/* Use these functions to set pointer slots of struct interval.  */
+/* Use these functions to set Lisp_Object
+   or pointer slots of struct interval.  */
+
+static void
+set_interval_object (INTERVAL i, Lisp_Object obj)
+{
+  eassert (BUFFERP (obj) || STRINGP (obj));
+  i->up_obj = 1;
+  i->up.obj = obj;
+}
 
 static void
 set_interval_left (INTERVAL i, INTERVAL left)
@@ -99,14 +110,14 @@ create_root_interval (Lisp_Object parent)
     {
       new->total_length = (BUF_Z (XBUFFER (parent))
 			   - BUF_BEG (XBUFFER (parent)));
-      eassert (TOTAL_LENGTH (new) >= 0);
+      eassert (0 <= TOTAL_LENGTH (new));
       set_buffer_intervals (XBUFFER (parent), new);
       new->position = BEG;
     }
   else if (STRINGP (parent))
     {
       new->total_length = SCHARS (parent);
-      eassert (TOTAL_LENGTH (new) >= 0);
+      eassert (0 <= TOTAL_LENGTH (new));
       set_string_intervals (parent, new);
       new->position = 0;
     }
@@ -360,11 +371,11 @@ rotate_right (INTERVAL interval)
 
   /* A's total length is decreased by the length of B and its left child.  */
   interval->total_length -= B->total_length - LEFT_TOTAL_LENGTH (interval);
-  eassert (TOTAL_LENGTH (interval) >= 0);
+  eassert (0 <= TOTAL_LENGTH (interval));
 
   /* B must have the same total length of A.  */
   B->total_length = old_total;
-  eassert (TOTAL_LENGTH (B) >= 0);
+  eassert (0 <= TOTAL_LENGTH (B));
 
   return B;
 }
@@ -407,11 +418,11 @@ rotate_left (INTERVAL interval)
 
   /* A's total length is decreased by the length of B and its right child.  */
   interval->total_length -= B->total_length - RIGHT_TOTAL_LENGTH (interval);
-  eassert (TOTAL_LENGTH (interval) >= 0);
+  eassert (0 <= TOTAL_LENGTH (interval));
 
   /* B must have the same total length of A.  */
   B->total_length = old_total;
-  eassert (TOTAL_LENGTH (B) >= 0);
+  eassert (0 <= TOTAL_LENGTH (B));
 
   return B;
 }
@@ -545,7 +556,7 @@ split_interval_right (INTERVAL interval, ptrdiff_t offset)
     {
       set_interval_right (interval, new);
       new->total_length = new_length;
-      eassert (TOTAL_LENGTH (new) >= 0);
+      eassert (0 <= TOTAL_LENGTH (new));
     }
   else
     {
@@ -554,7 +565,7 @@ split_interval_right (INTERVAL interval, ptrdiff_t offset)
       set_interval_parent (interval->right, new);
       set_interval_right (interval, new);
       new->total_length = new_length + new->right->total_length;
-      eassert (TOTAL_LENGTH (new) >= 0);
+      eassert (0 <= TOTAL_LENGTH (new));
       balance_an_interval (new);
     }
 
@@ -590,7 +601,7 @@ split_interval_left (INTERVAL interval, ptrdiff_t offset)
     {
       set_interval_left (interval, new);
       new->total_length = new_length;
-      eassert (TOTAL_LENGTH (new) >= 0);
+      eassert (0 <= TOTAL_LENGTH (new));
     }
   else
     {
@@ -599,7 +610,7 @@ split_interval_left (INTERVAL interval, ptrdiff_t offset)
       set_interval_parent (new->left, new);
       set_interval_left (interval, new);
       new->total_length = new_length + new->left->total_length;
-      eassert (TOTAL_LENGTH (new) >= 0);
+      eassert (0 <= TOTAL_LENGTH (new));
       balance_an_interval (new);
     }
 
@@ -667,7 +678,6 @@ find_interval (register INTERVAL tree, register ptrdiff_t position)
 
   while (1)
     {
-      eassert (tree);
       if (relative_position < LEFT_TOTAL_LENGTH (tree))
 	{
 	  tree = tree->left;
@@ -950,7 +960,7 @@ adjust_intervals_for_insertion (INTERVAL tree,
       for (temp = prev ? prev : i; temp; temp = INTERVAL_PARENT_OR_NULL (temp))
 	{
 	  temp->total_length += length;
-	  eassert (TOTAL_LENGTH (temp) >= 0);
+	  eassert (0 <= TOTAL_LENGTH (temp));
 	  temp = balance_possible_root_interval (temp);
 	}
 
@@ -1006,7 +1016,7 @@ adjust_intervals_for_insertion (INTERVAL tree,
       for (temp = i; temp; temp = INTERVAL_PARENT_OR_NULL (temp))
 	{
 	  temp->total_length += length;
-	  eassert (TOTAL_LENGTH (temp) >= 0);
+	  eassert (0 <= TOTAL_LENGTH (temp));
 	  temp = balance_possible_root_interval (temp);
 	}
     }
@@ -1208,7 +1218,7 @@ delete_node (register INTERVAL i)
       this = this->left;
       this->total_length += migrate_amt;
     }
-  eassert (TOTAL_LENGTH (this) >= 0);
+  eassert (0 <= TOTAL_LENGTH (this));
   set_interval_left (this, migrate);
   set_interval_parent (migrate, this);
 
@@ -1290,7 +1300,7 @@ interval_deletion_adjustment (register INTERVAL tree, register ptrdiff_t from,
 							 relative_position,
 							 amount);
       tree->total_length -= subtract;
-      eassert (TOTAL_LENGTH (tree) >= 0);
+      eassert (0 <= TOTAL_LENGTH (tree));
       return subtract;
     }
   /* Right branch.  */
@@ -1305,7 +1315,7 @@ interval_deletion_adjustment (register INTERVAL tree, register ptrdiff_t from,
 					       relative_position,
 					       amount);
       tree->total_length -= subtract;
-      eassert (TOTAL_LENGTH (tree) >= 0);
+      eassert (0 <= TOTAL_LENGTH (tree));
       return subtract;
     }
   /* Here -- this node.  */
@@ -1320,7 +1330,7 @@ interval_deletion_adjustment (register INTERVAL tree, register ptrdiff_t from,
 	amount = my_amount;
 
       tree->total_length -= amount;
-      eassert (TOTAL_LENGTH (tree) >= 0);
+      eassert (0 <= TOTAL_LENGTH (tree));
       if (LENGTH (tree) == 0)
 	delete_interval (tree);
 
@@ -1362,7 +1372,7 @@ adjust_intervals_for_deletion (struct buffer *buffer,
   if (ONLY_INTERVAL_P (tree))
     {
       tree->total_length -= length;
-      eassert (TOTAL_LENGTH (tree) >= 0);
+      eassert (0 <= TOTAL_LENGTH (tree));
       return;
     }
 
@@ -1396,7 +1406,10 @@ offset_intervals (struct buffer *buffer, ptrdiff_t start, ptrdiff_t length)
     adjust_intervals_for_insertion (buffer_intervals (buffer),
 				    start, length);
   else
-    adjust_intervals_for_deletion (buffer, start, -length);
+    {
+      lint_assume (- TYPE_MAXIMUM (ptrdiff_t) <= length);
+      adjust_intervals_for_deletion (buffer, start, -length);
+    }
 }
 
 /* Merge interval I with its lexicographic successor. The resulting
@@ -1422,19 +1435,19 @@ merge_interval_right (register INTERVAL i)
       while (! NULL_LEFT_CHILD (successor))
 	{
 	  successor->total_length += absorb;
-	  eassert (TOTAL_LENGTH (successor) >= 0);
+	  eassert (0 <= TOTAL_LENGTH (successor));
 	  successor = successor->left;
 	}
 
       successor->total_length += absorb;
-      eassert (TOTAL_LENGTH (successor) >= 0);
+      eassert (0 <= TOTAL_LENGTH (successor));
       delete_interval (i);
       return successor;
     }
 
   /* Zero out this interval.  */
   i->total_length -= absorb;
-  eassert (TOTAL_LENGTH (i) >= 0);
+  eassert (0 <= TOTAL_LENGTH (i));
 
   successor = i;
   while (! NULL_PARENT (successor))	   /* It's above us.  Subtract as
@@ -1449,7 +1462,7 @@ merge_interval_right (register INTERVAL i)
 
       successor = INTERVAL_PARENT (successor);
       successor->total_length -= absorb;
-      eassert (TOTAL_LENGTH (successor) >= 0);
+      eassert (0 <= TOTAL_LENGTH (successor));
     }
 
   /* This must be the rightmost or last interval and cannot
@@ -1478,19 +1491,19 @@ merge_interval_left (register INTERVAL i)
       while (! NULL_RIGHT_CHILD (predecessor))
 	{
 	  predecessor->total_length += absorb;
-	  eassert (TOTAL_LENGTH (predecessor) >= 0);
+	  eassert (0 <= TOTAL_LENGTH (predecessor));
 	  predecessor = predecessor->right;
 	}
 
       predecessor->total_length += absorb;
-      eassert (TOTAL_LENGTH (predecessor) >= 0);
+      eassert (0 <= TOTAL_LENGTH (predecessor));
       delete_interval (i);
       return predecessor;
     }
 
   /* Zero out this interval.  */
   i->total_length -= absorb;
-  eassert (TOTAL_LENGTH (i) >= 0);
+  eassert (0 <= TOTAL_LENGTH (i));
 
   predecessor = i;
   while (! NULL_PARENT (predecessor))	/* It's above us.  Go up,
@@ -1505,7 +1518,7 @@ merge_interval_left (register INTERVAL i)
 
       predecessor = INTERVAL_PARENT (predecessor);
       predecessor->total_length -= absorb;
-      eassert (TOTAL_LENGTH (predecessor) >= 0);
+      eassert (0 <= TOTAL_LENGTH (predecessor));
     }
 
   /* This must be the leftmost or first interval and cannot
@@ -1612,8 +1625,7 @@ graft_intervals_into_buffer (INTERVAL source, ptrdiff_t position,
 	  XSETBUFFER (buf, buffer);
 	  set_text_properties_1 (make_number (position),
 				 make_number (position + length),
-				 Qnil, buf,
-				 find_interval (tree, position));
+				 Qnil, buf, 0);
 	}
       /* Shouldn't be necessary.  --Stef  */
       buffer_balance_intervals (buffer);
@@ -1781,7 +1793,8 @@ temp_set_point_both (struct buffer *buffer,
 		     ptrdiff_t charpos, ptrdiff_t bytepos)
 {
   /* In a single-byte buffer, the two positions must be equal.  */
-  eassert (BUF_ZV (buffer) != BUF_ZV_BYTE (buffer) || charpos == bytepos);
+  if (BUF_ZV (buffer) == BUF_ZV_BYTE (buffer))
+    eassert (charpos == bytepos);
 
   eassert (charpos <= bytepos);
   eassert (charpos <= BUF_ZV (buffer) || BUF_BEGV (buffer) <= charpos);
@@ -1805,18 +1818,6 @@ void
 set_point (ptrdiff_t charpos)
 {
   set_point_both (charpos, buf_charpos_to_bytepos (current_buffer, charpos));
-}
-
-/* Set PT from MARKER's clipped position.  */
-
-void
-set_point_from_marker (Lisp_Object marker)
-{
-  if (XMARKER (marker)->buffer != current_buffer)
-    signal_error ("Marker points into wrong buffer", marker);
-  set_point_both
-    (clip_to_bounds (BEGV, marker_position (marker), ZV),
-     clip_to_bounds (BEGV_BYTE, marker_byte_position (marker), ZV_BYTE));
 }
 
 /* If there's an invisible character at position POS + TEST_OFFS in the
@@ -2194,15 +2195,20 @@ get_property_and_range (ptrdiff_t pos, Lisp_Object prop, Lisp_Object *val,
 /* Return the proper local keymap TYPE for position POSITION in
    BUFFER; TYPE should be one of `keymap' or `local-map'.  Use the map
    specified by the PROP property, if any.  Otherwise, if TYPE is
-   `local-map' use BUFFER's local map.  */
+   `local-map' use BUFFER's local map.
+
+   POSITION must be in the accessible part of BUFFER.  */
 
 Lisp_Object
-get_local_map (ptrdiff_t position, struct buffer *buffer, Lisp_Object type)
+get_local_map (register ptrdiff_t position, register struct buffer *buffer,
+	       Lisp_Object type)
 {
   Lisp_Object prop, lispy_position, lispy_buffer;
   ptrdiff_t old_begv, old_zv, old_begv_byte, old_zv_byte;
 
-  position = clip_to_bounds (BUF_BEGV (buffer), position, BUF_ZV (buffer));
+  /* Perhaps we should just change `position' to the limit.  */
+  if (position > BUF_ZV (buffer) || position < BUF_BEGV (buffer))
+    emacs_abort ();
 
   /* Ignore narrowing, so that a local map continues to be valid even if
      the visible region contains no characters and hence no properties.  */
@@ -2224,7 +2230,7 @@ get_local_map (ptrdiff_t position, struct buffer *buffer, Lisp_Object type)
      editing a field with a `local-map' property, we want insertion at the end
      to obey the `local-map' property.  */
   if (NILP (prop))
-    prop = Fget_pos_property (lispy_position, type, lispy_buffer);
+    prop = get_pos_property (lispy_position, type, lispy_buffer);
 
   SET_BUF_BEGV_BOTH (buffer, old_begv, old_begv_byte);
   SET_BUF_ZV_BOTH (buffer, old_zv, old_zv_byte);
@@ -2265,7 +2271,7 @@ copy_intervals (INTERVAL tree, ptrdiff_t start, ptrdiff_t length)
   new->position = 0;
   got = (LENGTH (i) - (start - i->position));
   new->total_length = length;
-  eassert (TOTAL_LENGTH (new) >= 0);
+  eassert (0 <= TOTAL_LENGTH (new));
   copy_properties (i, new);
 
   t = new;
@@ -2348,7 +2354,7 @@ set_intervals_multibyte_1 (INTERVAL i, bool multi_flag,
     i->total_length = end - start;
   else
     i->total_length = end_byte - start_byte;
-  eassert (TOTAL_LENGTH (i) >= 0);
+  eassert (0 <= TOTAL_LENGTH (i));
 
   if (TOTAL_LENGTH (i) == 0)
     {

@@ -1,6 +1,6 @@
 /* Add two struct timespec values.
 
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2013 Free Software Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 /* Written by Paul Eggert.  */
 
 /* Return the sum of two timespec values A and B.  On overflow, return
-   an extremal value.  This assumes 0 <= tv_nsec < TIMESPEC_RESOLUTION.  */
+   an extremal value.  This assumes 0 <= tv_nsec <= 999999999.  */
 
 #include <config.h>
 #include "timespec.h"
@@ -28,10 +28,11 @@
 struct timespec
 timespec_add (struct timespec a, struct timespec b)
 {
+  struct timespec r;
   time_t rs = a.tv_sec;
   time_t bs = b.tv_sec;
   int ns = a.tv_nsec + b.tv_nsec;
-  int nsd = ns - TIMESPEC_RESOLUTION;
+  int nsd = ns - 1000000000;
   int rns = ns;
 
   if (0 <= nsd)
@@ -58,11 +59,13 @@ timespec_add (struct timespec a, struct timespec b)
         {
         high_overflow:
           rs = TYPE_MAXIMUM (time_t);
-          rns = TIMESPEC_RESOLUTION - 1;
+          rns = 999999999;
         }
     }
   else
     rs += bs;
 
-  return make_timespec (rs, rns);
+  r.tv_sec = rs;
+  r.tv_nsec = rns;
+  return r;
 }

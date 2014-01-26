@@ -1,6 +1,6 @@
 ;;; view.el --- peruse file or buffer without editing
 
-;; Copyright (C) 1985, 1989, 1994-1995, 1997, 2000-2014 Free Software
+;; Copyright (C) 1985, 1989, 1994-1995, 1997, 2000-2013 Free Software
 ;; Foundation, Inc.
 
 ;; Author: K. Shane Hartman
@@ -199,7 +199,6 @@ This is local in each buffer, once it is used.")
     (define-key map "\C-?" 'View-scroll-page-backward)
     ;; (define-key map "f" 'View-scroll-page-forward)
     (define-key map " " 'View-scroll-page-forward)
-    (define-key map [?\S-\ ]  'View-scroll-page-backward)
     (define-key map "o" 'View-scroll-to-buffer-end)
     (define-key map ">" 'end-of-buffer)
     (define-key map "<" 'beginning-of-buffer)
@@ -322,7 +321,7 @@ own View-like bindings."
     (view-mode-enter nil exit-action)))
 
 ;;;###autoload
-(defun view-buffer-other-window (buffer &optional _not-return exit-action)
+(defun view-buffer-other-window (buffer &optional not-return exit-action)
   "View BUFFER in View mode in another window.
 Emacs commands editing the buffer contents are not available;
 instead, a special set of commands (mostly letters and
@@ -349,7 +348,7 @@ own View-like bindings."
     (view-mode-enter nil exit-action)))
 
 ;;;###autoload
-(defun view-buffer-other-frame (buffer &optional _not-return exit-action)
+(defun view-buffer-other-frame (buffer &optional not-return exit-action)
   "View BUFFER in View mode in another frame.
 Emacs commands editing the buffer contents are not available;
 instead, a special set of commands (mostly letters and
@@ -408,8 +407,8 @@ Digits	provide prefix arguments.
 \\[View-scroll-to-buffer-end]	scroll so that buffer end is at last line of window.
 SPC	scroll forward \"page size\" lines.
 	  With prefix scroll forward prefix lines.
-DEL, S-SPC  scroll backward \"page size\" lines.
-	      With prefix scroll backward prefix lines.
+DEL	scroll backward \"page size\" lines.
+	  With prefix scroll backward prefix lines.
 \\[View-scroll-page-forward-set-page-size]	like  \\[View-scroll-page-forward]  but with prefix sets \"page size\" to prefix.
 \\[View-scroll-page-backward-set-page-size]	like  \\[View-scroll-page-backward]  but with prefix sets \"page size\" to prefix.
 \\[View-scroll-half-page-forward]	scroll forward \"half page size\" lines.  With prefix, sets
@@ -462,13 +461,15 @@ then \\[View-leave], \\[View-quit] and \\[View-kill-and-leave] will return to th
 
 Entry to view-mode runs the normal hook `view-mode-hook'."
   :lighter " View" :keymap view-mode-map
-  (if view-mode (view--enable) (view--disable)))
+  (if view-mode (view-mode-enable) (view-mode-disable)))
 
-(defun view--enable ()
+(defun view-mode-enable ()
+  "Turn on View mode."
   ;; Always leave view mode before changing major mode.
   ;; This is to guarantee that the buffer-read-only variable is restored.
-  (add-hook 'change-major-mode-hook 'view--disable nil t)
-  (setq view-page-size nil
+  (add-hook 'change-major-mode-hook 'view-mode-disable nil t)
+  (setq view-mode t
+	view-page-size nil
 	view-half-page-size nil
 	view-old-buffer-read-only buffer-read-only
 	buffer-read-only t)
@@ -479,18 +480,15 @@ Entry to view-mode runs the normal hook `view-mode-hook'."
 	    (format "continue viewing %s"
 		    (if (buffer-file-name)
 			(file-name-nondirectory (buffer-file-name))
-		      (buffer-name))))))
+		      (buffer-name)))))
+  (force-mode-line-update)
+  (run-hooks 'view-mode-hook))
 
-
-(define-obsolete-function-alias 'view-mode-enable 'view-mode "24.4")
 (defun view-mode-disable ()
   "Turn off View mode."
-  (declare (obsolete view-mode "24.4"))
-  (view-mode -1))
-
-(defun view--disable ()
-  (remove-hook 'change-major-mode-hook 'view--disable t)
+  (remove-hook 'change-major-mode-hook 'view-mode-disable t)
   (and view-overlay (delete-overlay view-overlay))
+  (force-mode-line-update)
   ;; Calling toggle-read-only while View mode is enabled
   ;; sets view-read-only to t as a buffer-local variable
   ;; after exiting View mode.  That arranges that the next toggle-read-only
@@ -499,6 +497,7 @@ Entry to view-mode runs the normal hook `view-mode-hook'."
   ;; so that View mode stays off if toggle-read-only is called.
   (if (local-variable-p 'view-read-only)
       (kill-local-variable 'view-read-only))
+  (setq view-mode nil)
   (if (boundp 'Helper-return-blurb)
       (setq Helper-return-blurb view-old-Helper-return-blurb))
   (if buffer-read-only
@@ -561,7 +560,8 @@ This function runs the normal hook `view-mode-hook'."
     (setq view-exit-action exit-action))
 
   (unless view-mode
-    (view-mode 1)
+    (view-mode-enable)
+    (force-mode-line-update)
     (unless view-inhibit-help-message
       (message "%s"
 	       (substitute-command-keys "\
@@ -588,7 +588,7 @@ current buffer. "
   (when view-mode
     (let ((buffer (window-buffer)))
       (unless view-no-disable-on-exit
-	(view-mode -1))
+	(view-mode-disable))
 
       (unless exit-only
 	(cond
@@ -599,7 +599,8 @@ current buffer. "
 	  (quit-window)))
 
 	(when exit-action
-	  (funcall exit-action buffer))))))
+	  (funcall exit-action buffer))
+	(force-mode-line-update)))))
 
 (defun View-exit ()
   "Exit View mode but stay in current buffer."

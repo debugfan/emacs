@@ -1,6 +1,6 @@
 ;;; ediff-wind.el --- window manipulation utilities
 
-;; Copyright (C) 1994-1997, 2000-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1994-1997, 2000-2013 Free Software Foundation, Inc.
 
 ;; Author: Michael Kifer <kifer@cs.stonybrook.edu>
 ;; Package: ediff
@@ -40,18 +40,19 @@
 
 ;; declare-function does not exist in XEmacs
 (eval-and-compile
-  (unless (fboundp 'declare-function) (defmacro declare-function (&rest  _r))))
+  (unless (fboundp 'declare-function) (defmacro declare-function (&rest  r))))
 
-(require 'ediff-init)
-(require 'ediff-help)
+(eval-when-compile
+  (require 'ediff-util)
+  (require 'ediff-help))
 ;; end pacifier
 
+(require 'ediff-init)
 
 ;; be careful with ediff-tbar
-(eval-and-compile
-  (if (featurep 'xemacs)
-      (require 'ediff-tbar)
-    (defun ediff-compute-toolbar-width () 0)))
+(if (featurep 'xemacs)
+    (require 'ediff-tbar)
+  (defun ediff-compute-toolbar-width () 0))
 
 (defgroup ediff-window nil
   "Ediff window manipulation."
@@ -280,7 +281,7 @@ into icons, regardless of the window manager."
 
 ;;; Functions
 
-(defun ediff-get-window-by-clicking (_wind _prev-wind wind-number)
+(defun ediff-get-window-by-clicking (wind prev-wind wind-number)
   (let (event)
     (message
      "Select windows by clicking.  Please click on Window %d " wind-number)
@@ -289,9 +290,9 @@ into icons, regardless of the window manager."
 	  (beep 1))
       (message "Please click on Window %d " wind-number))
     (ediff-read-event) ; discard event
-    (if (featurep 'xemacs)
-        (event-window event)
-      (posn-window (event-start event)))))
+    (setq wind (if (featurep 'xemacs)
+		   (event-window event)
+		 (posn-window (event-start event))))))
 
 
 ;; Select the lowest window on the frame.
@@ -356,8 +357,6 @@ into icons, regardless of the window manager."
        buffer-A buffer-B buffer-C control-buffer)
     (ediff-setup-windows-plain-compare
      buffer-A buffer-B buffer-C control-buffer)))
-
-(autoload 'ediff-setup-control-buffer "ediff-util")
 
 (defun ediff-setup-windows-plain-merge (buf-A buf-B buf-C control-buffer)
   ;; skip dedicated and unsplittable frames
@@ -861,7 +860,7 @@ into icons, regardless of the window manager."
 ;; create a new splittable frame if none is found
 (defun ediff-skip-unsuitable-frames (&optional ok-unsplittable)
   (if (ediff-window-display-p)
-      (let ((wind-frame (window-frame))
+      (let ((wind-frame (window-frame (selected-window)))
 	     seen-windows)
 	(while (and (not (memq (selected-window) seen-windows))
 		    (or
@@ -877,7 +876,7 @@ into icons, regardless of the window manager."
 	  (setq seen-windows (cons (selected-window) seen-windows))
 	  ;; try new window
 	  (other-window 1 t)
-	  (setq wind-frame (window-frame))
+	  (setq wind-frame (window-frame (selected-window)))
 	  )
 	(if (memq (selected-window) seen-windows)
 	    ;; fed up, no appropriate frames
@@ -909,8 +908,6 @@ into icons, regardless of the window manager."
     (not (ediff-frame-has-dedicated-windows (window-frame wind)))
     )))
 
-(declare-function ediff-make-bottom-toolbar "ediff-util" (&optional frame))
-
 ;; Prepare or refresh control frame
 (defun ediff-setup-control-frame (ctl-buffer designated-minibuffer-frame)
   (let ((window-min-height 1)
@@ -939,7 +936,7 @@ into icons, regardless of the window manager."
 
     (setq ctl-frame-iconified-p (ediff-frame-iconified-p ctl-frame))
     (select-frame ctl-frame)
-    (if (window-dedicated-p)
+    (if (window-dedicated-p (selected-window))
 	()
       (delete-other-windows)
       (switch-to-buffer ctl-buffer))

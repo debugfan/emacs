@@ -1,6 +1,6 @@
 ;;; fast-lock.el --- automagic text properties caching for fast Font Lock mode
 
-;; Copyright (C) 1994-1998, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1994-1998, 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: Simon Marshall <simon@gnu.org>
 ;; Maintainer: FSF
@@ -855,7 +855,3 @@ See `fast-lock-get-face-properties'."
 (provide 'fast-lock)
 
 ;;; fast-lock.el ends here
-
-;; Local Variables:
-;; byte-compile-warnings: (not obsolete)
-;; End:

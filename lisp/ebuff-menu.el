@@ -1,6 +1,6 @@
 ;;; ebuff-menu.el --- electric-buffer-list mode
 
-;; Copyright (C) 1985-1986, 1994, 2001-2014 Free Software Foundation,
+;; Copyright (C) 1985-1986, 1994, 2001-2013 Free Software Foundation,
 ;; Inc.
 
 ;; Author: Richard Mlynarik <mly@ai.mit.edu>
@@ -227,7 +227,7 @@ Select buffer at point and display buffers marked \">\" in other windows."
 (defun Electric-buffer-menu-mouse-select (event)
   (interactive "e")
   (select-window (posn-window (event-end event)))
-  (set-buffer (window-buffer))
+  (set-buffer (window-buffer (selected-window)))
   (goto-char (posn-point (event-end event)))
   (throw 'electric-buffer-menu-select (point)))
 

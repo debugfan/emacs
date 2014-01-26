@@ -1,5 +1,5 @@
 /* GNU Emacs routines to deal with syntax tables; also word and list parsing.
-   Copyright (C) 1985, 1987, 1993-1995, 1997-1999, 2001-2014 Free
+   Copyright (C) 1985, 1987, 1993-1995, 1997-1999, 2001-2013 Free
    Software Foundation, Inc.
 
 This file is part of GNU Emacs.
@@ -29,16 +29,14 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "keymap.h"
 #include "regex.h"
 
+/* Make syntax table lookup grant data in gl_state.  */
+#define SYNTAX_ENTRY_VIA_PROPERTY
+
 #include "syntax.h"
 #include "intervals.h"
 #include "category.h"
 
-/* Make syntax table lookup grant data in gl_state.  */
-#define SYNTAX(c) syntax_property (c, 1)
-#define SYNTAX_ENTRY(c) syntax_property_entry (c, 1)
-#define SYNTAX_WITH_FLAGS(c) syntax_property_with_flags (c, 1)
-
-/* Eight single-bit flags have the following meanings:
+/* Then there are seven single-bit flags that have the following meanings:
   1. This character is the first of a two-character comment-start sequence.
   2. This character is the second of a two-character comment-start sequence.
   3. This character is the first of a two-character comment-end sequence.
@@ -50,95 +48,63 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
   Note that any two-character sequence whose first character has flag 1
   and whose second character has flag 2 will be interpreted as a comment start.
 
-  Bits 6 and 8 discriminate among different comment styles.
+  bit 6 and 8 are used to discriminate between different comment styles.
   Languages such as C++ allow two orthogonal syntax start/end pairs
-  and bit 6 determines whether a comment-end or Scommentend
+  and bit 6 is used to determine whether a comment-end or Scommentend
   ends style a or b.  Comment markers can start style a, b, c, or bc.
   Style a is always the default.
-  For 2-char comment markers, the style b flag is looked up only on the second
+  For 2-char comment markers, the style b flag is only looked up on the second
   char of the comment marker and on the first char of the comment ender.
-  For style c (like the nested flag), the flag can be placed on any of
-  the chars.  */
+  For style c (like to for the nested flag), the flag can be placed on any
+  one of the chars.
+  */
 
-/* These functions extract specific flags from an integer
+/* These macros extract specific flags from an integer
    that holds the syntax code and the flags.  */
 
-static bool
-SYNTAX_FLAGS_COMSTART_FIRST (int flags)
-{
-  return (flags >> 16) & 1;
-}
-static bool
-SYNTAX_FLAGS_COMSTART_SECOND (int flags)
-{
-  return (flags >> 17) & 1;
-}
-static bool
-SYNTAX_FLAGS_COMEND_FIRST (int flags)
-{
-  return (flags >> 18) & 1;
-}
-static bool
-SYNTAX_FLAGS_COMEND_SECOND (int flags)
-{
-  return (flags >> 19) & 1;
-}
-static bool
-SYNTAX_FLAGS_PREFIX (int flags)
-{
-  return (flags >> 20) & 1;
-}
-static bool
-SYNTAX_FLAGS_COMMENT_STYLEB (int flags)
-{
-  return (flags >> 21) & 1;
-}
-static bool
-SYNTAX_FLAGS_COMMENT_STYLEC (int flags)
-{
-  return (flags >> 23) & 1;
-}
-static int
-SYNTAX_FLAGS_COMMENT_STYLEC2 (int flags)
-{
-  return (flags >> 22) & 2; /* SYNTAX_FLAGS_COMMENT_STYLEC (flags) * 2 */
-}
-static bool
-SYNTAX_FLAGS_COMMENT_NESTED (int flags)
-{
-  return (flags >> 22) & 1;
-}
+#define SYNTAX_FLAGS_COMSTART_FIRST(flags) (((flags) >> 16) & 1)
 
+#define SYNTAX_FLAGS_COMSTART_SECOND(flags) (((flags) >> 17) & 1)
+
+#define SYNTAX_FLAGS_COMEND_FIRST(flags) (((flags) >> 18) & 1)
+
+#define SYNTAX_FLAGS_COMEND_SECOND(flags) (((flags) >> 19) & 1)
+
+#define SYNTAX_FLAGS_PREFIX(flags) (((flags) >> 20) & 1)
+
+#define SYNTAX_FLAGS_COMMENT_STYLEB(flags) (((flags) >> 21) & 1)
+#define SYNTAX_FLAGS_COMMENT_STYLEC(flags) (((flags) >> 22) & 2)
 /* FLAGS should be the flags of the main char of the comment marker, e.g.
    the second for comstart and the first for comend.  */
-static int
-SYNTAX_FLAGS_COMMENT_STYLE (int flags, int other_flags)
-{
-  return (SYNTAX_FLAGS_COMMENT_STYLEB (flags)
-	  | SYNTAX_FLAGS_COMMENT_STYLEC2 (flags)
-	  | SYNTAX_FLAGS_COMMENT_STYLEC2 (other_flags));
-}
+#define SYNTAX_FLAGS_COMMENT_STYLE(flags, other_flags) \
+  (SYNTAX_FLAGS_COMMENT_STYLEB (flags) \
+   | SYNTAX_FLAGS_COMMENT_STYLEC (flags) \
+   | SYNTAX_FLAGS_COMMENT_STYLEC (other_flags))
 
-/* Extract a particular flag for a given character.  */
+#define SYNTAX_FLAGS_COMMENT_NESTED(flags) (((flags) >> 22) & 1)
 
-static bool
-SYNTAX_COMEND_FIRST (int c)
-{
-  return SYNTAX_FLAGS_COMEND_FIRST (SYNTAX_WITH_FLAGS (c));
-}
+/* These macros extract a particular flag for a given character.  */
+
+#define SYNTAX_COMEND_FIRST(c) \
+  (SYNTAX_FLAGS_COMEND_FIRST (SYNTAX_WITH_FLAGS (c)))
+#define SYNTAX_PREFIX(c) (SYNTAX_FLAGS_PREFIX (SYNTAX_WITH_FLAGS (c)))
 
 /* We use these constants in place for comment-style and
-   string-ender-char to distinguish comments/strings started by
+   string-ender-char to distinguish  comments/strings started by
    comment_fence and string_fence codes.  */
 
-enum
-  {
-    ST_COMMENT_STYLE = 256 + 1,
-    ST_STRING_STYLE = 256 + 2
-  };
+#define ST_COMMENT_STYLE (256 + 1)
+#define ST_STRING_STYLE (256 + 2)
 
 static Lisp_Object Qsyntax_table_p;
 static Lisp_Object Qsyntax_table, Qscan_error;
+
+#ifndef __GNUC__
+/* Used as a temporary in SYNTAX_ENTRY and other macros in syntax.h,
+   if not compiled with GCC.  No need to mark it, since it is used
+   only very temporarily.  */
+Lisp_Object syntax_temp;
+#endif
 
 /* This is the internal form of the parse state used in parse-partial-sexp.  */
 
@@ -148,14 +114,13 @@ struct lisp_parse_state
     int instring;  /* -1 if not within string, else desired terminator.  */
     EMACS_INT incomment; /* -1 if in unnestable comment else comment nesting */
     int comstyle;  /* comment style a=0, or b=1, or ST_COMMENT_STYLE.  */
-    bool quoted;   /* True if just after an escape char at end of parsing.  */
+    int quoted;	   /* Nonzero if just after an escape char at end of parsing */
     EMACS_INT mindepth;	/* Minimum depth seen while scanning.  */
     /* Char number of most recent start-of-expression at current level */
     ptrdiff_t thislevelstart;
     /* Char number of start of containing expression */
     ptrdiff_t prevlevelstart;
     ptrdiff_t location;	     /* Char number at which parsing stopped.  */
-    ptrdiff_t location_byte; /* Corresponding byte position.  */
     ptrdiff_t comstr_start;  /* Position of last comment/string starter.  */
     Lisp_Object levelstarts; /* Char numbers of starts-of-expression
 				of levels (starting from outermost).  */
@@ -177,13 +142,13 @@ static ptrdiff_t find_start_begv;
 static EMACS_INT find_start_modiff;
 
 
-static Lisp_Object skip_chars (bool, Lisp_Object, Lisp_Object, bool);
-static Lisp_Object skip_syntaxes (bool, Lisp_Object, Lisp_Object);
-static Lisp_Object scan_lists (EMACS_INT, EMACS_INT, EMACS_INT, bool);
+static Lisp_Object skip_chars (int, Lisp_Object, Lisp_Object, int);
+static Lisp_Object skip_syntaxes (int, Lisp_Object, Lisp_Object);
+static Lisp_Object scan_lists (EMACS_INT, EMACS_INT, EMACS_INT, int);
 static void scan_sexps_forward (struct lisp_parse_state *,
                                 ptrdiff_t, ptrdiff_t, ptrdiff_t, EMACS_INT,
-                                bool, Lisp_Object, int);
-static bool in_classes (int, Lisp_Object);
+                                int, Lisp_Object, int);
+static int in_classes (int, Lisp_Object);
 
 /* This setter is used only in this file, so it can be private.  */
 static void
@@ -193,109 +158,15 @@ bset_syntax_table (struct buffer *b, Lisp_Object val)
 }
 
 /* Whether the syntax of the character C has the prefix flag set.  */
-bool
-syntax_prefix_flag_p (int c)
+int syntax_prefix_flag_p (int c)
 {
-  return SYNTAX_FLAGS_PREFIX (SYNTAX_WITH_FLAGS (c));
+  return SYNTAX_PREFIX (c);
 }
 
 struct gl_state_s gl_state;		/* Global state of syntax parser.  */
 
-enum { INTERVALS_AT_ONCE = 10 };	/* 1 + max-number of intervals
+#define INTERVALS_AT_ONCE 10		/* 1 + max-number of intervals
 					   to scan to property-change.  */
-
-/* Set the syntax entry VAL for char C in table TABLE.  */
-
-static void
-SET_RAW_SYNTAX_ENTRY (Lisp_Object table, int c, Lisp_Object val)
-{
-  CHAR_TABLE_SET (table, c, val);
-}
-
-/* Set the syntax entry VAL for char-range RANGE in table TABLE.
-   RANGE is a cons (FROM . TO) specifying the range of characters.  */
-
-static void
-SET_RAW_SYNTAX_ENTRY_RANGE (Lisp_Object table, Lisp_Object range,
-			    Lisp_Object val)
-{
-  Fset_char_table_range (table, range, val);
-}
-
-/* Extract the information from the entry for character C
-   in the current syntax table.  */
-
-static Lisp_Object
-SYNTAX_MATCH (int c)
-{
-  Lisp_Object ent = SYNTAX_ENTRY (c);
-  return CONSP (ent) ? XCDR (ent) : Qnil;
-}
-
-/* This should be called with FROM at the start of forward
-   search, or after the last position of the backward search.  It
-   makes sure that the first char is picked up with correct table, so
-   one does not need to call UPDATE_SYNTAX_TABLE immediately after the
-   call.
-   Sign of COUNT gives the direction of the search.
- */
-
-static void
-SETUP_SYNTAX_TABLE (ptrdiff_t from, ptrdiff_t count)
-{
-  SETUP_BUFFER_SYNTAX_TABLE ();
-  gl_state.b_property = BEGV;
-  gl_state.e_property = ZV + 1;
-  gl_state.object = Qnil;
-  gl_state.offset = 0;
-  if (parse_sexp_lookup_properties)
-    if (count > 0 || from > BEGV)
-      update_syntax_table (count > 0 ? from : from - 1, count, 1, Qnil);
-}
-
-/* Same as above, but in OBJECT.  If OBJECT is nil, use current buffer.
-   If it is t (which is only used in fast_c_string_match_ignore_case),
-   ignore properties altogether.
-
-   This is meant for regex.c to use.  For buffers, regex.c passes arguments
-   to the UPDATE_SYNTAX_TABLE functions which are relative to BEGV.
-   So if it is a buffer, we set the offset field to BEGV.  */
-
-void
-SETUP_SYNTAX_TABLE_FOR_OBJECT (Lisp_Object object,
-			       ptrdiff_t from, ptrdiff_t count)
-{
-  SETUP_BUFFER_SYNTAX_TABLE ();
-  gl_state.object = object;
-  if (BUFFERP (gl_state.object))
-    {
-      struct buffer *buf = XBUFFER (gl_state.object);
-      gl_state.b_property = 1;
-      gl_state.e_property = BUF_ZV (buf) - BUF_BEGV (buf) + 1;
-      gl_state.offset = BUF_BEGV (buf) - 1;
-    }
-  else if (NILP (gl_state.object))
-    {
-      gl_state.b_property = 1;
-      gl_state.e_property = ZV - BEGV + 1;
-      gl_state.offset = BEGV - 1;
-    }
-  else if (EQ (gl_state.object, Qt))
-    {
-      gl_state.b_property = 0;
-      gl_state.e_property = PTRDIFF_MAX;
-      gl_state.offset = 0;
-    }
-  else
-    {
-      gl_state.b_property = 0;
-      gl_state.e_property = 1 + SCHARS (gl_state.object);
-      gl_state.offset = 0;
-    }
-  if (parse_sexp_lookup_properties)
-    update_syntax_table (from + gl_state.offset - (count <= 0),
-			 count, 1, gl_state.object);
-}
 
 /* Update gl_state to an appropriate interval which contains CHARPOS.  The
    sign of COUNT give the relative position of CHARPOS wrt the previously
@@ -311,12 +182,12 @@ SETUP_SYNTAX_TABLE_FOR_OBJECT (Lisp_Object object,
    start/end of OBJECT.  */
 
 void
-update_syntax_table (ptrdiff_t charpos, EMACS_INT count, bool init,
+update_syntax_table (ptrdiff_t charpos, EMACS_INT count, int init,
 		     Lisp_Object object)
 {
   Lisp_Object tmp_table;
-  int cnt = 0;
-  bool invalidate = 1;
+  unsigned cnt = 0;
+  int invalidate = 1;
   INTERVAL i;
 
   if (init)
@@ -468,16 +339,16 @@ update_syntax_table (ptrdiff_t charpos, EMACS_INT count, bool init,
     gl_state.b_property = gl_state.start;
 }
 
-/* Returns true if char at CHARPOS is quoted.
+/* Returns TRUE if char at CHARPOS is quoted.
    Global syntax-table data should be set up already to be good at CHARPOS
    or after.  On return global syntax data is good for lookup at CHARPOS. */
 
-static bool
+static int
 char_quoted (ptrdiff_t charpos, ptrdiff_t bytepos)
 {
-  enum syntaxcode code;
-  ptrdiff_t beg = BEGV;
-  bool quoted = 0;
+  register enum syntaxcode code;
+  register ptrdiff_t beg = BEGV;
+  register int quoted = 0;
   ptrdiff_t orig = charpos;
 
   while (charpos > beg)
@@ -594,11 +465,10 @@ find_defun_start (ptrdiff_t pos, ptrdiff_t pos_byte)
 
 /* Return the SYNTAX_COMEND_FIRST of the character before POS, POS_BYTE.  */
 
-static bool
+static int
 prev_char_comend_first (ptrdiff_t pos, ptrdiff_t pos_byte)
 {
-  int c;
-  bool val;
+  int c, val;
 
   DEC_BOTH (pos, pos_byte);
   UPDATE_SYNTAX_TABLE_BACKWARD (pos);
@@ -608,11 +478,28 @@ prev_char_comend_first (ptrdiff_t pos, ptrdiff_t pos_byte)
   return val;
 }
 
-/* Check whether charpos FROM is at the end of a comment.
+/* Return the SYNTAX_COMSTART_FIRST of the character before POS, POS_BYTE.  */
+
+/* static int
+ * prev_char_comstart_first (pos, pos_byte)
+ *      int pos, pos_byte;
+ * {
+ *   int c, val;
+ *
+ *   DEC_BOTH (pos, pos_byte);
+ *   UPDATE_SYNTAX_TABLE_BACKWARD (pos);
+ *   c = FETCH_CHAR (pos_byte);
+ *   val = SYNTAX_COMSTART_FIRST (c);
+ *   UPDATE_SYNTAX_TABLE_FORWARD (pos + 1);
+ *   return val;
+ * } */
+
+/* Checks whether charpos FROM is at the end of a comment.
    FROM_BYTE is the bytepos corresponding to FROM.
    Do not move back before STOP.
 
-   Return true if we find a comment ending at FROM/FROM_BYTE.
+   Return a positive value if we find a comment ending at FROM/FROM_BYTE;
+   return -1 otherwise.
 
    If successful, store the charpos of the comment's beginning
    into *CHARPOS_PTR, and the bytepos into *BYTEPOS_PTR.
@@ -620,10 +507,8 @@ prev_char_comend_first (ptrdiff_t pos, ptrdiff_t pos_byte)
    Global syntax data remains valid for backward search starting at
    the returned value (or at FROM, if the search was not successful).  */
 
-static bool
-back_comment (ptrdiff_t from, ptrdiff_t from_byte, ptrdiff_t stop,
-	      bool comnested, int comstyle, ptrdiff_t *charpos_ptr,
-	      ptrdiff_t *bytepos_ptr)
+static int
+back_comment (ptrdiff_t from, ptrdiff_t from_byte, ptrdiff_t stop, int comnested, int comstyle, ptrdiff_t *charpos_ptr, ptrdiff_t *bytepos_ptr)
 {
   /* Look back, counting the parity of string-quotes,
      and recording the comment-starters seen.
@@ -635,13 +520,13 @@ back_comment (ptrdiff_t from, ptrdiff_t from_byte, ptrdiff_t stop,
      which is I+2X quotes from the comment-end.
      PARITY is current parity of quotes from the comment end.  */
   int string_style = -1;	/* Presumed outside of any string. */
-  bool string_lossage = 0;
+  int string_lossage = 0;
   /* Not a real lossage: indicates that we have passed a matching comment
      starter plus a non-matching comment-ender, meaning that any matching
      comment-starter we might see later could be a false positive (hidden
      inside another comment).
      Test case:  { a (* b } c (* d *) */
-  bool comment_lossage = 0;
+  int comment_lossage = 0;
   ptrdiff_t comment_end = from;
   ptrdiff_t comment_end_byte = from_byte;
   ptrdiff_t comstart_pos = 0;
@@ -650,8 +535,8 @@ back_comment (ptrdiff_t from, ptrdiff_t from_byte, ptrdiff_t stop,
      or 0 if we didn't come across it yet.  */
   ptrdiff_t defun_start = 0;
   ptrdiff_t defun_start_byte = 0;
-  enum syntaxcode code;
-  ptrdiff_t nesting = 1;		/* current comment nesting */
+  register enum syntaxcode code;
+  int nesting = 1;		/* current comment nesting */
   int c;
   int syntax = 0;
 
@@ -664,8 +549,8 @@ back_comment (ptrdiff_t from, ptrdiff_t from_byte, ptrdiff_t stop,
   while (from != stop)
     {
       ptrdiff_t temp_byte;
-      int prev_syntax;
-      bool com2start, com2end, comstart;
+      int prev_syntax, com2start, com2end;
+      int comstart;
 
       /* Move back and examine a character.  */
       DEC_BOTH (from, from_byte);
@@ -886,7 +771,7 @@ back_comment (ptrdiff_t from, ptrdiff_t from_byte, ptrdiff_t stop,
   *charpos_ptr = from;
   *bytepos_ptr = from_byte;
 
-  return from != comment_end;
+  return (from == comment_end) ? -1 : from;
 }
 
 DEFUN ("syntax-table-p", Fsyntax_table_p, Ssyntax_table_p, 1, 1, 0,
@@ -968,28 +853,31 @@ One argument, a syntax table.  */)
  into the code it signifies.
  This is used by modify-syntax-entry, and other things.  */
 
-unsigned char const syntax_spec_code[0400] =
+unsigned char syntax_spec_code[0400] =
   { 0377, 0377, 0377, 0377, 0377, 0377, 0377, 0377,
     0377, 0377, 0377, 0377, 0377, 0377, 0377, 0377,
     0377, 0377, 0377, 0377, 0377, 0377, 0377, 0377,
     0377, 0377, 0377, 0377, 0377, 0377, 0377, 0377,
-    Swhitespace, Scomment_fence, Sstring, 0377, Smath, 0377, 0377, Squote,
-    Sopen, Sclose, 0377, 0377, 0377, Swhitespace, Spunct, Scharquote,
+    (char) Swhitespace, (char) Scomment_fence, (char) Sstring, 0377,
+        (char) Smath, 0377, 0377, (char) Squote,
+    (char) Sopen, (char) Sclose, 0377, 0377,
+	0377, (char) Swhitespace, (char) Spunct, (char) Scharquote,
     0377, 0377, 0377, 0377, 0377, 0377, 0377, 0377,
-    0377, 0377, 0377, 0377, Scomment, 0377, Sendcomment, 0377,
-    Sinherit, 0377, 0377, 0377, 0377, 0377, 0377, 0377,   /* @, A ... */
+    0377, 0377, 0377, 0377,
+	(char) Scomment, 0377, (char) Sendcomment, 0377,
+    (char) Sinherit, 0377, 0377, 0377, 0377, 0377, 0377, 0377,   /* @, A ... */
     0377, 0377, 0377, 0377, 0377, 0377, 0377, 0377,
-    0377, 0377, 0377, 0377, 0377, 0377, 0377, Sword,
-    0377, 0377, 0377, 0377, Sescape, 0377, 0377, Ssymbol,
+    0377, 0377, 0377, 0377, 0377, 0377, 0377, (char) Sword,
+    0377, 0377, 0377, 0377, (char) Sescape, 0377, 0377, (char) Ssymbol,
     0377, 0377, 0377, 0377, 0377, 0377, 0377, 0377,   /* `, a, ... */
     0377, 0377, 0377, 0377, 0377, 0377, 0377, 0377,
-    0377, 0377, 0377, 0377, 0377, 0377, 0377, Sword,
-    0377, 0377, 0377, 0377, Sstring_fence, 0377, 0377, 0377
+    0377, 0377, 0377, 0377, 0377, 0377, 0377, (char) Sword,
+    0377, 0377, 0377, 0377, (char) Sstring_fence, 0377, 0377, 0377
   };
 
 /* Indexed by syntax code, give the letter that describes it.  */
 
-char const syntax_code_spec[16] =
+char syntax_code_spec[16] =
   {
     ' ', '.', 'w', '_', '(', ')', '\'', '\"', '$', '\\', '/', '<', '>', '@',
     '!', '|'
@@ -1015,16 +903,15 @@ are listed in the documentation of `modify-syntax-entry'.  */)
   CHECK_CHARACTER (character);
   char_int = XINT (character);
   SETUP_BUFFER_SYNTAX_TABLE ();
-  return make_number (syntax_code_spec[SYNTAX (char_int)]);
+  return make_number (syntax_code_spec[(int) SYNTAX (char_int)]);
 }
 
 DEFUN ("matching-paren", Fmatching_paren, Smatching_paren, 1, 1, 0,
        doc: /* Return the matching parenthesis of CHARACTER, or nil if none.  */)
   (Lisp_Object character)
 {
-  int char_int;
-  enum syntaxcode code;
-  CHECK_CHARACTER (character);
+  int char_int, code;
+  CHECK_NUMBER (character);
   char_int = XINT (character);
   SETUP_BUFFER_SYNTAX_TABLE ();
   code = SYNTAX (char_int);
@@ -1041,18 +928,19 @@ cons cell \(CODE . MATCHING-CHAR) which can be used, for example, as
 the value of a `syntax-table' text property.  */)
   (Lisp_Object string)
 {
-  const unsigned char *p;
+  register const unsigned char *p;
+  register enum syntaxcode code;
   int val;
   Lisp_Object match;
 
   CHECK_STRING (string);
 
   p = SDATA (string);
-  val = syntax_spec_code[*p++];
-  if (val == 0377)
+  code = (enum syntaxcode) syntax_spec_code[*p++];
+  if (((int) code & 0377) == 0377)
     error ("Invalid syntax description letter: %c", p[-1]);
 
-  if (val == Sinherit)
+  if (code == Sinherit)
     return Qnil;
 
   if (*p)
@@ -1067,6 +955,7 @@ the value of a `syntax-table' text property.  */)
   else
     match = Qnil;
 
+  val = (int) code;
   while (*p)
     switch (*p++)
       {
@@ -1188,8 +1077,10 @@ DEFUN ("internal-describe-syntax-value", Finternal_describe_syntax_value,
        doc: /* Insert a description of the internal syntax description SYNTAX at point.  */)
   (Lisp_Object syntax)
 {
-  int code, syntax_code;
-  bool start1, start2, end1, end2, prefix, comstyleb, comstylec, comnested;
+  register enum syntaxcode code;
+  int syntax_code;
+  char desc, start1, start2, end1, end2, prefix,
+    comstyleb, comstylec, comnested;
   char str[2];
   Lisp_Object first, match_lisp, value = syntax;
 
@@ -1221,7 +1112,7 @@ DEFUN ("internal-describe-syntax-value", Finternal_describe_syntax_value,
     }
 
   syntax_code = XINT (first) & INT_MAX;
-  code = syntax_code & 0377;
+  code = (enum syntaxcode) (syntax_code & 0377);
   start1 = SYNTAX_FLAGS_COMSTART_FIRST (syntax_code);
   start2 = SYNTAX_FLAGS_COMSTART_SECOND (syntax_code);;
   end1 = SYNTAX_FLAGS_COMEND_FIRST (syntax_code);
@@ -1231,13 +1122,14 @@ DEFUN ("internal-describe-syntax-value", Finternal_describe_syntax_value,
   comstylec = SYNTAX_FLAGS_COMMENT_STYLEC (syntax_code);
   comnested = SYNTAX_FLAGS_COMMENT_NESTED (syntax_code);
 
-  if (Smax <= code)
+  if ((int) code < 0 || (int) code >= (int) Smax)
     {
       insert_string ("invalid");
       return syntax;
     }
+  desc = syntax_code_spec[(int) code];
 
-  str[0] = syntax_code_spec[code], str[1] = 0;
+  str[0] = desc, str[1] = 0;
   insert (str, 1);
 
   if (NILP (match_lisp))
@@ -1464,7 +1356,6 @@ scan_words (register ptrdiff_t from, register EMACS_INT count)
 
 DEFUN ("forward-word", Fforward_word, Sforward_word, 0, 1, "^p",
        doc: /* Move point forward ARG words (backward if ARG is negative).
-If ARG is omitted or nil, move point forward one word.
 Normally returns t.
 If an edge of the buffer or a field boundary is reached, point is left there
 and the function returns nil.  Field boundaries are not noticed if
@@ -1539,21 +1430,21 @@ This function returns the distance traveled, either zero or negative.  */)
 }
 
 static Lisp_Object
-skip_chars (bool forwardp, Lisp_Object string, Lisp_Object lim,
-	    bool handle_iso_classes)
+skip_chars (int forwardp, Lisp_Object string, Lisp_Object lim, int handle_iso_classes)
 {
-  int c;
-  char fastmap[0400];
+  register unsigned int c;
+  unsigned char fastmap[0400];
   /* Store the ranges of non-ASCII characters.  */
   int *char_ranges IF_LINT (= NULL);
   int n_char_ranges = 0;
-  bool negate = 0;
-  ptrdiff_t i, i_byte;
-  /* True if the current buffer is multibyte and the region contains
-     non-ASCII chars.  */
-  bool multibyte;
-  /* True if STRING is multibyte and it contains non-ASCII chars.  */
-  bool string_multibyte;
+  int negate = 0;
+  register ptrdiff_t i, i_byte;
+  /* Set to 1 if the current buffer is multibyte and the region
+     contains non-ASCII chars.  */
+  int multibyte;
+  /* Set to 1 if STRING is multibyte and it contains non-ASCII
+     chars.  */
+  int string_multibyte;
   ptrdiff_t size_byte;
   const unsigned char *str;
   int len;
@@ -1597,7 +1488,7 @@ skip_chars (bool forwardp, Lisp_Object string, Lisp_Object lim,
 
   if (! string_multibyte)
     {
-      bool string_has_eight_bit = 0;
+      int string_has_eight_bit = 0;
 
       /* At first setup fastmap.  */
       while (i_byte < size_byte)
@@ -1652,7 +1543,7 @@ skip_chars (bool forwardp, Lisp_Object string, Lisp_Object lim,
 	  if (i_byte + 1 < size_byte
 	      && str[i_byte] == '-')
 	    {
-	      int c2;
+	      unsigned int c2;
 
 	      /* Skip over the dash.  */
 	      i_byte++;
@@ -1665,7 +1556,7 @@ skip_chars (bool forwardp, Lisp_Object string, Lisp_Object lim,
 
 	      if (c <= c2)
 		{
-		  int lim2 = c2 + 1;
+		  unsigned lim2 = c2 + 1;
 		  while (c < lim2)
 		    fastmap[c++] = 1;
 		  if (! ASCII_CHAR_P (c2))
@@ -1685,31 +1576,34 @@ skip_chars (bool forwardp, Lisp_Object string, Lisp_Object lim,
 	 the corresponding multibyte chars.  */
       if (multibyte && string_has_eight_bit)
 	{
-	  char *p1;
-	  char himap[0200 + 1];
-	  memcpy (himap, fastmap + 0200, 0200);
-	  himap[0200] = 0;
+	  unsigned char fastmap2[0400];
+	  int range_start_byte, range_start_char;
+
+	  memcpy (fastmap + 0200, fastmap2 + 0200, 0200);
 	  memset (fastmap + 0200, 0, 0200);
+	  /* We are sure that this loop stops.  */
+	  for (i = 0200; ! fastmap2[i]; i++);
+	  c = BYTE8_TO_CHAR (i);
+	  fastmap[CHAR_LEADING_CODE (c)] = 1;
+	  range_start_byte = i;
+	  range_start_char = c;
 	  char_ranges = alloca (sizeof *char_ranges * 128 * 2);
-	  i = 0;
-
-	  while ((p1 = memchr (himap + i, 1, 0200 - i)))
+	  for (i = 129; i < 0400; i++)
 	    {
-	      /* Deduce the next range C..C2 from the next clump of 1s
-		 in HIMAP starting with &HIMAP[I].  HIMAP is the high
-		 order half of the old FASTMAP.  */
-	      int c2, leading_code;
-	      i = p1 - himap;
-	      c = BYTE8_TO_CHAR (i + 0200);
-	      i += strlen (p1);
-	      c2 = BYTE8_TO_CHAR (i + 0200 - 1);
-
-	      char_ranges[n_char_ranges++] = c;
-	      char_ranges[n_char_ranges++] = c2;
-	      leading_code = CHAR_LEADING_CODE (c);
-	      memset (fastmap + leading_code, 1,
-		      CHAR_LEADING_CODE (c2) - leading_code + 1);
+	      c = BYTE8_TO_CHAR (i);
+	      fastmap[CHAR_LEADING_CODE (c)] = 1;
+	      if (i - range_start_byte != c - range_start_char)
+		{
+		  char_ranges[n_char_ranges++] = range_start_char;
+		  char_ranges[n_char_ranges++] = ((i - 1 - range_start_byte)
+						  + range_start_char);
+		  range_start_byte = i;
+		  range_start_char = c;
+		}
 	    }
+	  char_ranges[n_char_ranges++] = range_start_char;
+	  char_ranges[n_char_ranges++] = ((i - 1 - range_start_byte)
+					  + range_start_char);
 	}
     }
   else				/* STRING is multibyte */
@@ -1718,7 +1612,9 @@ skip_chars (bool forwardp, Lisp_Object string, Lisp_Object lim,
 
       while (i_byte < size_byte)
 	{
-	  int leading_code = str[i_byte];
+	  unsigned char leading_code;
+
+	  leading_code = str[i_byte];
 	  c = STRING_CHAR_AND_LENGTH (str + i_byte, len);
 	  i_byte += len;
 
@@ -1772,7 +1668,8 @@ skip_chars (bool forwardp, Lisp_Object string, Lisp_Object lim,
 	  if (i_byte + 1 < size_byte
 	      && str[i_byte] == '-')
 	    {
-	      int c2, leading_code2;
+	      unsigned int c2;
+	      unsigned char leading_code2;
 
 	      /* Skip over the dash.  */
 	      i_byte++;
@@ -1786,7 +1683,7 @@ skip_chars (bool forwardp, Lisp_Object string, Lisp_Object lim,
 		  && i_byte < size_byte)
 		{
 		  leading_code2 = str[i_byte];
-		  c2 = STRING_CHAR_AND_LENGTH (str + i_byte, len);
+		  c2 =STRING_CHAR_AND_LENGTH (str + i_byte, len);
 		  i_byte += len;
 		}
 
@@ -1800,7 +1697,7 @@ skip_chars (bool forwardp, Lisp_Object string, Lisp_Object lim,
 		}
 	      if (! ASCII_CHAR_P (c))
 		{
-		  int lim2 = leading_code2 + 1;
+		  unsigned lim2 = leading_code2 + 1;
 		  while (leading_code < lim2)
 		    fastmap[leading_code++] = 1;
 		  if (c <= c2)
@@ -1833,7 +1730,7 @@ skip_chars (bool forwardp, Lisp_Object string, Lisp_Object lim,
 	  for (i = 0; i < n_char_ranges; i += 2)
 	    {
 	      int c1 = char_ranges[i];
-	      int lim2 = char_ranges[i + 1] + 1;
+	      unsigned lim2 = char_ranges[i + 1] + 1;
 
 	      for (; c1 < lim2; c1++)
 		{
@@ -1879,7 +1776,7 @@ skip_chars (bool forwardp, Lisp_Object string, Lisp_Object lim,
       }
 
     immediate_quit = 1;
-    /* This code may look up syntax tables using functions that rely on the
+    /* This code may look up syntax tables using macros that rely on the
        gl_state object.  To make sure this object is not out of date,
        let's initialize it manually.
        We ignore syntax-table text-properties for now, since that's
@@ -2029,13 +1926,13 @@ skip_chars (bool forwardp, Lisp_Object string, Lisp_Object lim,
 
 
 static Lisp_Object
-skip_syntaxes (bool forwardp, Lisp_Object string, Lisp_Object lim)
+skip_syntaxes (int forwardp, Lisp_Object string, Lisp_Object lim)
 {
-  int c;
+  register unsigned int c;
   unsigned char fastmap[0400];
-  bool negate = 0;
-  ptrdiff_t i, i_byte;
-  bool multibyte;
+  int negate = 0;
+  register ptrdiff_t i, i_byte;
+  int multibyte;
   ptrdiff_t size_byte;
   unsigned char *str;
 
@@ -2123,7 +2020,7 @@ skip_syntaxes (bool forwardp, Lisp_Object string, Lisp_Object lim)
 		    stop = endp;
 		  }
 		c = STRING_CHAR_AND_LENGTH (p, nbytes);
-		if (! fastmap[SYNTAX (c)])
+		if (! fastmap[(int) SYNTAX (c)])
 		  break;
 		p += nbytes, pos++, pos_byte += nbytes;
 		UPDATE_SYNTAX_TABLE_FORWARD (pos);
@@ -2140,7 +2037,7 @@ skip_syntaxes (bool forwardp, Lisp_Object string, Lisp_Object lim)
 		    p = GAP_END_ADDR;
 		    stop = endp;
 		  }
-		if (! fastmap[SYNTAX (*p)])
+		if (! fastmap[(int) SYNTAX (*p)])
 		  break;
 		p++, pos++, pos_byte++;
 		UPDATE_SYNTAX_TABLE_FORWARD (pos);
@@ -2166,7 +2063,7 @@ skip_syntaxes (bool forwardp, Lisp_Object string, Lisp_Object lim)
 		prev_p = p;
 		while (--p >= stop && ! CHAR_HEAD_P (*p));
 		c = STRING_CHAR (p);
-		if (! fastmap[SYNTAX (c)])
+		if (! fastmap[(int) SYNTAX (c)])
 		  break;
 		pos--, pos_byte -= prev_p - p;
 	      }
@@ -2183,7 +2080,7 @@ skip_syntaxes (bool forwardp, Lisp_Object string, Lisp_Object lim)
 		    stop = endp;
 		  }
 		UPDATE_SYNTAX_TABLE_BACKWARD (pos - 1);
-		if (! fastmap[SYNTAX (p[-1])])
+		if (! fastmap[(int) SYNTAX (p[-1])])
 		  break;
 		p--, pos--, pos_byte--;
 	      }
@@ -2197,14 +2094,14 @@ skip_syntaxes (bool forwardp, Lisp_Object string, Lisp_Object lim)
   }
 }
 
-/* Return true if character C belongs to one of the ISO classes
+/* Return 1 if character C belongs to one of the ISO classes
    in the list ISO_CLASSES.  Each class is represented by an
    integer which is its type according to re_wctype.  */
 
-static bool
+static int
 in_classes (int c, Lisp_Object iso_classes)
 {
-  bool fits_class = 0;
+  int fits_class = 0;
 
   while (CONSP (iso_classes))
     {
@@ -2224,26 +2121,26 @@ in_classes (int c, Lisp_Object iso_classes)
    FROM_BYTE is the bytepos corresponding to FROM.
    Do not move past STOP (a charpos).
    The comment over which we have to jump is of style STYLE
-     (either SYNTAX_FLAGS_COMMENT_STYLE (foo) or ST_COMMENT_STYLE).
+     (either SYNTAX_FLAGS_COMMENT_STYLE(foo) or ST_COMMENT_STYLE).
    NESTING should be positive to indicate the nesting at the beginning
      for nested comments and should be zero or negative else.
      ST_COMMENT_STYLE cannot be nested.
    PREV_SYNTAX is the SYNTAX_WITH_FLAGS of the previous character
      (or 0 If the search cannot start in the middle of a two-character).
 
-   If successful, return true and store the charpos of the comment's end
+   If successful, return 1 and store the charpos of the comment's end
    into *CHARPOS_PTR and the corresponding bytepos into *BYTEPOS_PTR.
-   Else, return false and store the charpos STOP into *CHARPOS_PTR, the
+   Else, return 0 and store the charpos STOP into *CHARPOS_PTR, the
    corresponding bytepos into *BYTEPOS_PTR and the current nesting
    (as defined for state.incomment) in *INCOMMENT_PTR.
 
    The comment end is the last character of the comment rather than the
-   character just after the comment.
+     character just after the comment.
 
    Global syntax data is assumed to initially be valid for FROM and
    remains valid for forward search starting at the returned position. */
 
-static bool
+static int
 forw_comment (ptrdiff_t from, ptrdiff_t from_byte, ptrdiff_t stop,
 	      EMACS_INT nesting, int style, int prev_syntax,
 	      ptrdiff_t *charpos_ptr, ptrdiff_t *bytepos_ptr,
@@ -2349,12 +2246,14 @@ If COUNT comments are found as expected, with nothing except whitespace
 between them, return t; otherwise return nil.  */)
   (Lisp_Object count)
 {
-  ptrdiff_t from, from_byte, stop;
-  int c, c1;
-  enum syntaxcode code;
+  register ptrdiff_t from;
+  ptrdiff_t from_byte;
+  register ptrdiff_t stop;
+  register int c, c1;
+  register enum syntaxcode code;
   int comstyle = 0;	    /* style of comment encountered */
-  bool comnested = 0;	    /* whether the comment is nestable or not */
-  bool found;
+  int comnested = 0;	    /* whether the comment is nestable or not */
+  int found;
   EMACS_INT count1;
   ptrdiff_t out_charpos, out_bytepos;
   EMACS_INT dummy;
@@ -2374,8 +2273,7 @@ between them, return t; otherwise return nil.  */)
     {
       do
 	{
-	  bool comstart_first;
-	  int syntax, other_syntax;
+	  int comstart_first, syntax, other_syntax;
 
 	  if (from == stop)
 	    {
@@ -2403,7 +2301,8 @@ between them, return t; otherwise return nil.  */)
 		 the comment section.  */
 	      code = Scomment;
 	      comstyle = SYNTAX_FLAGS_COMMENT_STYLE (other_syntax, syntax);
-	      comnested |= SYNTAX_FLAGS_COMMENT_NESTED (other_syntax);
+	      comnested
+		= comnested || SYNTAX_FLAGS_COMMENT_NESTED (other_syntax);
 	      INC_BOTH (from, from_byte);
 	      UPDATE_SYNTAX_TABLE_FORWARD (from);
 	    }
@@ -2439,8 +2338,7 @@ between them, return t; otherwise return nil.  */)
     {
       while (1)
 	{
-	  bool quoted;
-	  int syntax;
+	  int quoted, syntax;
 
 	  if (from <= stop)
 	    {
@@ -2474,13 +2372,14 @@ between them, return t; otherwise return nil.  */)
 	      c1 = FETCH_CHAR_AS_MULTIBYTE (from_byte);
 	      other_syntax = SYNTAX_WITH_FLAGS (c1);
 	      comstyle = SYNTAX_FLAGS_COMMENT_STYLE (other_syntax, syntax);
-	      comnested |= SYNTAX_FLAGS_COMMENT_NESTED (other_syntax);
+	      comnested
+		= comnested || SYNTAX_FLAGS_COMMENT_NESTED (other_syntax);
 	    }
 
 	  if (code == Scomment_fence)
 	    {
 	      /* Skip until first preceding unquoted comment_fence.  */
-	      bool fence_found = 0;
+	      int fence_found = 0;
 	      ptrdiff_t ini = from, ini_byte = from_byte;
 
 	      while (1)
@@ -2511,7 +2410,7 @@ between them, return t; otherwise return nil.  */)
 	    {
 	      found = back_comment (from, from_byte, stop, comnested, comstyle,
 				    &out_charpos, &out_bytepos);
-	      if (!found)
+	      if (found == -1)
 		{
 		  if (c == '\n')
 		    /* This end-of-line is not an end-of-comment.
@@ -2554,34 +2453,33 @@ between them, return t; otherwise return nil.  */)
 }
 
 /* Return syntax code of character C if C is an ASCII character
-   or if MULTIBYTE_SYMBOL_P is false.  Otherwise, return Ssymbol.  */
+   or `multibyte_symbol_p' is zero.  Otherwise, return Ssymbol.  */
 
-static enum syntaxcode
-syntax_multibyte (int c, bool multibyte_symbol_p)
-{
-  return ASCII_CHAR_P (c) || !multibyte_symbol_p ? SYNTAX (c) : Ssymbol;
-}
+#define SYNTAX_WITH_MULTIBYTE_CHECK(c)		\
+  ((ASCII_CHAR_P (c) || !multibyte_symbol_p)	\
+   ? SYNTAX (c) : Ssymbol)
 
 static Lisp_Object
-scan_lists (EMACS_INT from, EMACS_INT count, EMACS_INT depth, bool sexpflag)
+scan_lists (register EMACS_INT from, EMACS_INT count, EMACS_INT depth, int sexpflag)
 {
   Lisp_Object val;
-  ptrdiff_t stop = count > 0 ? ZV : BEGV;
-  int c, c1;
+  register ptrdiff_t stop = count > 0 ? ZV : BEGV;
+  register int c, c1;
   int stringterm;
-  bool quoted;
-  bool mathexit = 0;
-  enum syntaxcode code;
+  int quoted;
+  int mathexit = 0;
+  register enum syntaxcode code, temp_code;
   EMACS_INT min_depth = depth;    /* Err out if depth gets less than this.  */
   int comstyle = 0;	    /* style of comment encountered */
-  bool comnested = 0;	    /* whether the comment is nestable or not */
+  int comnested = 0;	    /* whether the comment is nestable or not */
   ptrdiff_t temp_pos;
   EMACS_INT last_good = from;
-  bool found;
+  int found;
   ptrdiff_t from_byte;
   ptrdiff_t out_bytepos, out_charpos;
+  int temp;
   EMACS_INT dummy;
-  bool multibyte_symbol_p = sexpflag && multibyte_syntax_as_symbol;
+  int multibyte_symbol_p = sexpflag && multibyte_syntax_as_symbol;
 
   if (depth > 0) min_depth = 0;
 
@@ -2598,12 +2496,11 @@ scan_lists (EMACS_INT from, EMACS_INT count, EMACS_INT depth, bool sexpflag)
     {
       while (from < stop)
 	{
-	  bool comstart_first, prefix;
-	  int syntax, other_syntax;
+	  int comstart_first, prefix, syntax, other_syntax;
 	  UPDATE_SYNTAX_TABLE_FORWARD (from);
 	  c = FETCH_CHAR_AS_MULTIBYTE (from_byte);
 	  syntax = SYNTAX_WITH_FLAGS (c);
-	  code = syntax_multibyte (c, multibyte_symbol_p);
+	  code = SYNTAX_WITH_MULTIBYTE_CHECK (c);
 	  comstart_first = SYNTAX_FLAGS_COMSTART_FIRST (syntax);
 	  comnested = SYNTAX_FLAGS_COMMENT_NESTED (syntax);
 	  comstyle = SYNTAX_FLAGS_COMMENT_STYLE (syntax, 0);
@@ -2625,7 +2522,8 @@ scan_lists (EMACS_INT from, EMACS_INT count, EMACS_INT depth, bool sexpflag)
 		 the comment section */
 	      code = Scomment;
 	      comstyle = SYNTAX_FLAGS_COMMENT_STYLE (other_syntax, syntax);
-	      comnested |= SYNTAX_FLAGS_COMMENT_NESTED (other_syntax);
+	      comnested
+		= comnested || SYNTAX_FLAGS_COMMENT_NESTED (other_syntax);
 	      INC_BOTH (from, from_byte);
 	      UPDATE_SYNTAX_TABLE_FORWARD (from);
 	    }
@@ -2649,8 +2547,10 @@ scan_lists (EMACS_INT from, EMACS_INT count, EMACS_INT depth, bool sexpflag)
 		{
 		  UPDATE_SYNTAX_TABLE_FORWARD (from);
 
+		  /* Some compilers can't handle this inside the switch.  */
 		  c = FETCH_CHAR_AS_MULTIBYTE (from_byte);
-		  switch (syntax_multibyte (c, multibyte_symbol_p))
+		  temp = SYNTAX_WITH_MULTIBYTE_CHECK (c);
+		  switch (temp)
 		    {
 		    case Scharquote:
 		    case Sescape:
@@ -2722,18 +2622,19 @@ scan_lists (EMACS_INT from, EMACS_INT count, EMACS_INT depth, bool sexpflag)
 	      stringterm = FETCH_CHAR_AS_MULTIBYTE (temp_pos);
 	      while (1)
 		{
-		  enum syntaxcode c_code;
 		  if (from >= stop)
 		    goto lose;
 		  UPDATE_SYNTAX_TABLE_FORWARD (from);
 		  c = FETCH_CHAR_AS_MULTIBYTE (from_byte);
-		  c_code = syntax_multibyte (c, multibyte_symbol_p);
 		  if (code == Sstring
-		      ? c == stringterm && c_code == Sstring
-		      : c_code == Sstring_fence)
+		      ? (c == stringterm
+			 && SYNTAX_WITH_MULTIBYTE_CHECK (c) == Sstring)
+		      : SYNTAX_WITH_MULTIBYTE_CHECK (c) == Sstring_fence)
 		    break;
 
-		  switch (c_code)
+		  /* Some compilers can't handle this inside the switch.  */
+		  temp = SYNTAX_WITH_MULTIBYTE_CHECK (c);
+		  switch (temp)
 		    {
 		    case Scharquote:
 		    case Sescape:
@@ -2771,7 +2672,7 @@ scan_lists (EMACS_INT from, EMACS_INT count, EMACS_INT depth, bool sexpflag)
 	  UPDATE_SYNTAX_TABLE_BACKWARD (from);
 	  c = FETCH_CHAR_AS_MULTIBYTE (from_byte);
 	  syntax= SYNTAX_WITH_FLAGS (c);
-	  code = syntax_multibyte (c, multibyte_symbol_p);
+	  code = SYNTAX_WITH_MULTIBYTE_CHECK (c);
 	  if (depth == min_depth)
 	    last_good = from;
 	  comstyle = 0;
@@ -2792,7 +2693,8 @@ scan_lists (EMACS_INT from, EMACS_INT count, EMACS_INT depth, bool sexpflag)
 	      c2 = FETCH_CHAR_AS_MULTIBYTE (from_byte);
 	      other_syntax = SYNTAX_WITH_FLAGS (c2);
 	      comstyle = SYNTAX_FLAGS_COMMENT_STYLE (other_syntax, syntax);
-	      comnested |= SYNTAX_FLAGS_COMMENT_NESTED (other_syntax);
+	      comnested
+		= comnested || SYNTAX_FLAGS_COMMENT_NESTED (other_syntax);
 	    }
 
 	  /* Quoting turns anything except a comment-ender
@@ -2824,8 +2726,9 @@ scan_lists (EMACS_INT from, EMACS_INT count, EMACS_INT depth, bool sexpflag)
 		    temp_pos--;
 		  UPDATE_SYNTAX_TABLE_BACKWARD (from - 1);
 		  c1 = FETCH_CHAR_AS_MULTIBYTE (temp_pos);
+		  temp_code = SYNTAX_WITH_MULTIBYTE_CHECK (c1);
 		  /* Don't allow comment-end to be quoted.  */
-		  if (syntax_multibyte (c1, multibyte_symbol_p) == Sendcomment)
+		  if (temp_code == Sendcomment)
 		    goto done2;
 		  quoted = char_quoted (from - 1, temp_pos);
 		  if (quoted)
@@ -2835,12 +2738,11 @@ scan_lists (EMACS_INT from, EMACS_INT count, EMACS_INT depth, bool sexpflag)
 		      UPDATE_SYNTAX_TABLE_BACKWARD (from - 1);
 		    }
 		  c1 = FETCH_CHAR_AS_MULTIBYTE (temp_pos);
-		  if (! quoted)
-		    switch (syntax_multibyte (c1, multibyte_symbol_p))
-		      {
-		      case Sword: case Ssymbol: case Squote: break;
-		      default: goto done2;
-		      }
+		  temp_code = SYNTAX_WITH_MULTIBYTE_CHECK (c1);
+		  if (! (quoted || temp_code == Sword
+			 || temp_code == Ssymbol
+			 || temp_code == Squote))
+            	    goto done2;
 		  DEC_BOTH (from, from_byte);
 		}
 	      goto done2;
@@ -2877,13 +2779,13 @@ scan_lists (EMACS_INT from, EMACS_INT count, EMACS_INT depth, bool sexpflag)
 		break;
 	      found = back_comment (from, from_byte, stop, comnested, comstyle,
 				    &out_charpos, &out_bytepos);
-	      /* FIXME:  if !found, it really wasn't a comment-end.
+	      /* FIXME:  if found == -1, then it really wasn't a comment-end.
 		 For single-char Sendcomment, we can't do much about it apart
 		 from skipping the char.
 		 For 2-char endcomments, we could try again, taking both
 		 chars as separate entities, but it's a lot of trouble
 		 for very little gain, so we don't bother either.  -sm */
-	      if (found)
+	      if (found != -1)
 		from = out_charpos, from_byte = out_bytepos;
 	      break;
 
@@ -2895,12 +2797,10 @@ scan_lists (EMACS_INT from, EMACS_INT count, EMACS_INT depth, bool sexpflag)
 		    goto lose;
 		  DEC_BOTH (from, from_byte);
 		  UPDATE_SYNTAX_TABLE_BACKWARD (from);
-		  if (!char_quoted (from, from_byte))
-		    {
-		      c = FETCH_CHAR_AS_MULTIBYTE (from_byte);
-		      if (syntax_multibyte (c, multibyte_symbol_p) == code)
-			break;
-		    }
+		  if (!char_quoted (from, from_byte)
+		      && (c = FETCH_CHAR_AS_MULTIBYTE (from_byte),
+			  SYNTAX_WITH_MULTIBYTE_CHECK (c) == code))
+		    break;
 		}
 	      if (code == Sstring_fence && !depth && sexpflag) goto done2;
 	      break;
@@ -2913,14 +2813,11 @@ scan_lists (EMACS_INT from, EMACS_INT count, EMACS_INT depth, bool sexpflag)
 		    goto lose;
 		  DEC_BOTH (from, from_byte);
 		  UPDATE_SYNTAX_TABLE_BACKWARD (from);
-		  if (!char_quoted (from, from_byte))
-		    {
-		      c = FETCH_CHAR_AS_MULTIBYTE (from_byte);
-		      if (c == stringterm
-			  && (syntax_multibyte (c, multibyte_symbol_p)
-			      == Sstring))
-			break;
-		    }
+		  if (!char_quoted (from, from_byte)
+		      && (stringterm
+			  == (c = FETCH_CHAR_AS_MULTIBYTE (from_byte)))
+		      && SYNTAX_WITH_MULTIBYTE_CHECK (c) == Sstring)
+		    break;
 		}
 	      if (!depth && sexpflag) goto done2;
 	      break;
@@ -3026,7 +2923,7 @@ This includes chars with "quote" or "prefix" syntax (' or p).  */)
   while (!char_quoted (pos, pos_byte)
 	 /* Previous statement updates syntax table.  */
 	 && ((c = FETCH_CHAR_AS_MULTIBYTE (pos_byte), SYNTAX (c) == Squote)
-	     || syntax_prefix_flag_p (c)))
+	     || SYNTAX_PREFIX (c)))
     {
       opoint = pos;
       opoint_byte = pos_byte;
@@ -3043,7 +2940,7 @@ This includes chars with "quote" or "prefix" syntax (' or p).  */)
 /* Parse forward from FROM / FROM_BYTE to END,
    assuming that FROM has state OLDSTATE (nil means FROM is start of function),
    and return a description of the state of the parse at END.
-   If STOPBEFORE, stop at the start of an atom.
+   If STOPBEFORE is nonzero, stop at the start of an atom.
    If COMMENTSTOP is 1, stop at the start of a comment.
    If COMMENTSTOP is -1, stop at the start or end of a comment,
    after the beginning of a string, or after the end of a string.  */
@@ -3051,29 +2948,30 @@ This includes chars with "quote" or "prefix" syntax (' or p).  */)
 static void
 scan_sexps_forward (struct lisp_parse_state *stateptr,
 		    ptrdiff_t from, ptrdiff_t from_byte, ptrdiff_t end,
-		    EMACS_INT targetdepth, bool stopbefore,
+		    EMACS_INT targetdepth, int stopbefore,
 		    Lisp_Object oldstate, int commentstop)
 {
   struct lisp_parse_state state;
-  enum syntaxcode code;
+
+  register enum syntaxcode code;
   int c1;
-  bool comnested;
+  int comnested;
   struct level { ptrdiff_t last, prev; };
   struct level levelstart[100];
-  struct level *curlevel = levelstart;
+  register struct level *curlevel = levelstart;
   struct level *endlevel = levelstart + 100;
-  EMACS_INT depth;      /* Paren depth of current scanning location.
+  register EMACS_INT depth; /* Paren depth of current scanning location.
 			   level - levelstart equals this except
 			   when the depth becomes negative.  */
   EMACS_INT mindepth;		/* Lowest DEPTH value seen.  */
-  bool start_quoted = 0;	/* True means starting after a char quote.  */
+  int start_quoted = 0;		/* Nonzero means starting after a char quote */
   Lisp_Object tem;
   ptrdiff_t prev_from;		/* Keep one character before FROM.  */
   ptrdiff_t prev_from_byte;
   int prev_from_syntax;
-  bool boundary_stop = commentstop == -1;
-  bool nofence;
-  bool found;
+  int boundary_stop = commentstop == -1;
+  int nofence;
+  int found;
   ptrdiff_t out_bytepos, out_charpos;
   int temp;
 
@@ -3204,8 +3102,8 @@ do { prev_from = from;				\
 	     terminates the comment section.  */
 	  state.comstyle
 	    = SYNTAX_FLAGS_COMMENT_STYLE (syntax, prev_from_syntax);
-	  comnested = (SYNTAX_FLAGS_COMMENT_NESTED (prev_from_syntax)
-		       | SYNTAX_FLAGS_COMMENT_NESTED (syntax));
+	  comnested = SYNTAX_FLAGS_COMMENT_NESTED (prev_from_syntax);
+	  comnested = comnested || SYNTAX_FLAGS_COMMENT_NESTED (syntax);
 	  state.incomment = comnested ? 1 : -1;
 	  state.comstr_start = prev_from;
 	  INC_FROM;
@@ -3249,8 +3147,10 @@ do { prev_from = from;				\
 	symstarted:
 	  while (from < end)
 	    {
-	      int symchar = FETCH_CHAR_AS_MULTIBYTE (from_byte);
-	      switch (SYNTAX (symchar))
+	      /* Some compilers can't handle this inside the switch.  */
+	      temp = FETCH_CHAR_AS_MULTIBYTE (from_byte);
+	      temp = SYNTAX (temp);
+	      switch (temp)
 		{
 		case Scharquote:
 		case Sescape:
@@ -3332,19 +3232,19 @@ do { prev_from = from;				\
 	    while (1)
 	      {
 		int c;
-		enum syntaxcode c_code;
 
 		if (from >= end) goto done;
 		c = FETCH_CHAR_AS_MULTIBYTE (from_byte);
-		c_code = SYNTAX (c);
+		/* Some compilers can't handle this inside the switch.  */
+		temp = SYNTAX (c);
 
-		/* Check C_CODE here so that if the char has
+		/* Check TEMP here so that if the char has
 		   a syntax-table property which says it is NOT
 		   a string character, it does not end the string.  */
-		if (nofence && c == state.instring && c_code == Sstring)
+		if (nofence && c == state.instring && temp == Sstring)
 		  break;
 
-		switch (c_code)
+		switch (temp)
 		  {
 		  case Sstring_fence:
 		    if (!nofence) goto string_end;
@@ -3377,7 +3277,6 @@ do { prev_from = from;				\
 
  stop:   /* Here if stopping before start of sexp. */
   from = prev_from;    /* We have just fetched the char that starts it; */
-  from_byte = prev_from_byte;
   goto done; /* but return the position before it. */
 
  endquoted:
@@ -3389,7 +3288,6 @@ do { prev_from = from;				\
   state.prevlevelstart
     = (curlevel == levelstart) ? -1 : (curlevel - 1)->last;
   state.location = from;
-  state.location_byte = from_byte;
   state.levelstarts = Qnil;
   while (curlevel > levelstart)
     state.levelstarts = Fcons (make_number ((--curlevel)->last),
@@ -3429,8 +3327,7 @@ Fifth arg OLDSTATE is a list like what this function returns.
 Sixth arg COMMENTSTOP non-nil means stop at the start of a comment.
  If it is symbol `syntax-table', stop after the start of a comment or a
  string, or after end of a comment or a string.  */)
-  (Lisp_Object from, Lisp_Object to, Lisp_Object targetdepth,
-   Lisp_Object stopbefore, Lisp_Object oldstate, Lisp_Object commentstop)
+  (Lisp_Object from, Lisp_Object to, Lisp_Object targetdepth, Lisp_Object stopbefore, Lisp_Object oldstate, Lisp_Object commentstop)
 {
   struct lisp_parse_state state;
   EMACS_INT target;
@@ -3450,7 +3347,7 @@ Sixth arg COMMENTSTOP non-nil means stop at the start of a comment.
 		      (NILP (commentstop)
 		       ? 0 : (EQ (commentstop, Qsyntax_table) ? -1 : 1)));
 
-  SET_PT_BOTH (state.location, state.location_byte);
+  SET_PT (state.location);
 
   return Fcons (make_number (state.depth),
 	   Fcons (state.prevlevelstart < 0
@@ -3486,39 +3383,39 @@ init_syntax_once (void)
   /* This has to be done here, before we call Fmake_char_table.  */
   DEFSYM (Qsyntax_table, "syntax-table");
 
-  /* This variable is DEFSYMed in alloc.c and not initialized yet, so
-     intern it here.  NOTE: you must guarantee that init_syntax_once
-     is called before all other users of this variable.  */
+  /* Intern_C_String this now in case it isn't already done.
+     Setting this variable twice is harmless.
+     But don't staticpro it here--that is done in alloc.c.  */
   Qchar_table_extra_slots = intern_c_string ("char-table-extra-slots");
 
   /* Create objects which can be shared among syntax tables.  */
-  Vsyntax_code_object = make_uninit_vector (Smax);
-  for (i = 0; i < Smax; i++)
+  Vsyntax_code_object = Fmake_vector (make_number (Smax), Qnil);
+  for (i = 0; i < ASIZE (Vsyntax_code_object); i++)
     ASET (Vsyntax_code_object, i, Fcons (make_number (i), Qnil));
 
   /* Now we are ready to set up this property, so we can
      create syntax tables.  */
   Fput (Qsyntax_table, Qchar_table_extra_slots, make_number (0));
 
-  temp = AREF (Vsyntax_code_object, Swhitespace);
+  temp = AREF (Vsyntax_code_object, (int) Swhitespace);
 
   Vstandard_syntax_table = Fmake_char_table (Qsyntax_table, temp);
 
   /* Control characters should not be whitespace.  */
-  temp = AREF (Vsyntax_code_object, Spunct);
+  temp = AREF (Vsyntax_code_object, (int) Spunct);
   for (i = 0; i <= ' ' - 1; i++)
     SET_RAW_SYNTAX_ENTRY (Vstandard_syntax_table, i, temp);
   SET_RAW_SYNTAX_ENTRY (Vstandard_syntax_table, 0177, temp);
 
   /* Except that a few really are whitespace.  */
-  temp = AREF (Vsyntax_code_object, Swhitespace);
+  temp = AREF (Vsyntax_code_object, (int) Swhitespace);
   SET_RAW_SYNTAX_ENTRY (Vstandard_syntax_table, ' ', temp);
   SET_RAW_SYNTAX_ENTRY (Vstandard_syntax_table, '\t', temp);
   SET_RAW_SYNTAX_ENTRY (Vstandard_syntax_table, '\n', temp);
   SET_RAW_SYNTAX_ENTRY (Vstandard_syntax_table, 015, temp);
   SET_RAW_SYNTAX_ENTRY (Vstandard_syntax_table, 014, temp);
 
-  temp = AREF (Vsyntax_code_object, Sword);
+  temp = AREF (Vsyntax_code_object, (int) Sword);
   for (i = 'a'; i <= 'z'; i++)
     SET_RAW_SYNTAX_ENTRY (Vstandard_syntax_table, i, temp);
   for (i = 'A'; i <= 'Z'; i++)
@@ -3542,18 +3439,18 @@ init_syntax_once (void)
   SET_RAW_SYNTAX_ENTRY (Vstandard_syntax_table, '}',
 			Fcons (make_number (Sclose), make_number ('{')));
   SET_RAW_SYNTAX_ENTRY (Vstandard_syntax_table, '"',
-			Fcons (make_number (Sstring), Qnil));
+			Fcons (make_number ((int) Sstring), Qnil));
   SET_RAW_SYNTAX_ENTRY (Vstandard_syntax_table, '\\',
-			Fcons (make_number (Sescape), Qnil));
+			Fcons (make_number ((int) Sescape), Qnil));
 
-  temp = AREF (Vsyntax_code_object, Ssymbol);
+  temp = AREF (Vsyntax_code_object, (int) Ssymbol);
   for (i = 0; i < 10; i++)
     {
       c = "_-+*/&|<>="[i];
       SET_RAW_SYNTAX_ENTRY (Vstandard_syntax_table, c, temp);
     }
 
-  temp = AREF (Vsyntax_code_object, Spunct);
+  temp = AREF (Vsyntax_code_object, (int) Spunct);
   for (i = 0; i < 12; i++)
     {
       c = ".,;:?!#@~^'`"[i];
@@ -3561,7 +3458,7 @@ init_syntax_once (void)
     }
 
   /* All multibyte characters have syntax `word' by default.  */
-  temp = AREF (Vsyntax_code_object, Sword);
+  temp = AREF (Vsyntax_code_object, (int) Sword);
   char_table_set_range (Vstandard_syntax_table, 0x80, MAX_CHAR, temp);
 }
 

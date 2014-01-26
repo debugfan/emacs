@@ -1,6 +1,6 @@
 /* Header for xg_select.
 
-Copyright (C) 2009-2014 Free Software Foundation, Inc.
+Copyright (C) 2009-2013 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -21,12 +21,14 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #define XGSELECT_H
 
 #include "lisp.h"
-#include <time.h>
+#include "systime.h"
 #include "sysselect.h"
 
 extern int xg_select (int max_fds,
-		      fd_set *rfds, fd_set *wfds, fd_set *efds,
-		      struct timespec const *timeout,
-		      sigset_t const *sigmask);
+                      SELECT_TYPE *rfds,
+                      SELECT_TYPE *wfds,
+                      SELECT_TYPE *efds,
+                      EMACS_TIME *timeout,
+		      sigset_t *sigmask);
 
 #endif /* XGSELECT_H */

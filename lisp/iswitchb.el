@@ -1,6 +1,6 @@
 ;;; iswitchb.el --- switch between buffers using substrings
 
-;; Copyright (C) 1996-1997, 2000-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1996-1997, 2000-2013 Free Software Foundation, Inc.
 
 ;; Author: Stephen Eglen <stephen@gnu.org>
 ;; Maintainer: Stephen Eglen <stephen@gnu.org>
@@ -471,8 +471,6 @@ interfere with other minibuffer usage.")
     (define-key map "?" 'iswitchb-completion-help)
     (define-key map "\C-s" 'iswitchb-next-match)
     (define-key map "\C-r" 'iswitchb-prev-match)
-    (define-key map [?\C-.] 'iswitchb-next-match)
-    (define-key map [?\C-,] 'iswitchb-prev-match)
     (define-key map "\t" 'iswitchb-complete)
     (define-key map "\C-j" 'iswitchb-select-buffer-text)
     (define-key map "\C-t" 'iswitchb-toggle-regexp)
@@ -597,7 +595,7 @@ the selection process begins.  Used by isearchb.el."
   ;; The map is generated every time so that it can inherit new
   ;; functions.
   (let ((map (copy-keymap minibuffer-local-map))
-	buf-sel iswitchb-final-text
+	buf-sel iswitchb-final-text map
 	icomplete-mode)  ; prevent icomplete starting up
     (define-key map "?" 'iswitchb-completion-help)
     (define-key map "\C-s" 'iswitchb-next-match)
@@ -1426,9 +1424,6 @@ between buffers using substrings.  See `iswitchb' for details."
   (if iswitchb-mode
       (add-hook 'minibuffer-setup-hook 'iswitchb-minibuffer-setup)
     (remove-hook 'minibuffer-setup-hook 'iswitchb-minibuffer-setup)))
-
-(make-obsolete 'iswitchb-mode
-               "use icomplete-mode or ido-mode instead" "24.4")
 
 (provide 'iswitchb)
 

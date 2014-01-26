@@ -1,6 +1,6 @@
 ;;; files-x.el --- extended file handling commands
 
-;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
 
 ;; Author: Juri Linkov <juri@jurta.org>
 ;; Maintainer: FSF
@@ -38,10 +38,11 @@
 Intended to be used in the `interactive' spec of
 `add-file-local-variable', `delete-file-local-variable',
 `add-dir-local-variable', `delete-dir-local-variable'."
-  (let* ((default (variable-at-point))
-         (default (and (symbolp default) (boundp default)
+  (let (default variable)
+    (setq default (variable-at-point))
+    (setq default (and (symbolp default) (boundp default)
 		       (symbol-name default)))
-         (variable
+    (setq variable
 	  (completing-read
 	   (if default
 	       (format "%s (default %s): " prompt default)
@@ -51,47 +52,48 @@ Intended to be used in the `interactive' spec of
 	     (or (custom-variable-p sym)
                  (get sym 'safe-local-variable)
 		 (memq sym '(mode eval coding unibyte))))
-	   nil nil nil default nil)))
+	   nil nil nil default nil))
     (and (stringp variable) (intern variable))))
 
 (defun read-file-local-variable-value (variable)
   "Read value of file-local VARIABLE using completion.
 Intended to be used in the `interactive' spec of
 `add-file-local-variable' and `add-dir-local-variable'."
-  (cond
-   ((eq variable 'mode)
-    (let* ((default (and (symbolp major-mode) (symbol-name major-mode)))
-           (value
-            (completing-read
-             (if default
-                 (format "Add %s with value (default %s): " variable default)
-               (format "Add %s with value: " variable))
-             obarray
-             (lambda (sym)
-               (string-match-p "-mode\\'" (symbol-name sym)))
-             nil nil nil default nil)))
+  (let (default value)
+    (cond
+     ((eq variable 'mode)
+      (setq default (and (symbolp major-mode) (symbol-name major-mode)))
+      (setq value
+	    (completing-read
+	     (if default
+		 (format "Add %s with value (default %s): " variable default)
+	       (format "Add %s with value: " variable))
+	     obarray
+	     (lambda (sym)
+	       (string-match-p "-mode\\'" (symbol-name sym)))
+	     nil nil nil default nil))
       (and (stringp value)
-           (intern (replace-regexp-in-string "-mode\\'" "" value)))))
-   ((eq variable 'eval)
-    (read--expression (format "Add %s with expression: " variable)))
-   ((eq variable 'coding)
-    (let ((default (and (symbolp buffer-file-coding-system)
-                        (symbol-name buffer-file-coding-system))))
+	   (intern (replace-regexp-in-string "-mode\\'" "" value))))
+     ((eq variable 'eval)
+      (let ((minibuffer-completing-symbol t))
+	(read-from-minibuffer (format "Add %s with expression: " variable)
+			      nil read-expression-map t
+			      'read-expression-history)))
+     ((eq variable 'coding)
+      (setq default (and (symbolp buffer-file-coding-system)
+			 (symbol-name buffer-file-coding-system)))
       (read-coding-system
        (if default
-           (format "Add %s with value (default %s): " variable default)
-         (format "Add %s with value: " variable))
-       default)))
-   (t
-    (let ((default (format "%S"
-                           (cond ((eq variable 'unibyte) t)
-                                 ((boundp variable)
-                                  (symbol-value variable)))))
-          (minibuffer-completing-symbol t))
-      (read-from-minibuffer (format "Add %s with value: " variable)
-                            nil read-expression-map t
-                            'set-variable-value-history
-			    default)))))
+	   (format "Add %s with value (default %s): " variable default)
+	 (format "Add %s with value: " variable))
+       default))
+     (t
+      (read (read-string (format "Add %s with value: " variable)
+			 nil 'set-variable-value-history
+			 (format "%S"
+				 (cond ((eq variable 'unibyte) t)
+				       ((boundp variable)
+					(symbol-value variable))))))))))
 
 (defun read-file-local-variable-mode ()
   "Read per-directory file-local variable's mode using completion.
@@ -106,47 +108,14 @@ Intended to be used in the `interactive' spec of
 	   obarray
 	   (lambda (sym)
 	     (and (string-match-p "-mode\\'" (symbol-name sym))
-		  (not (or (memq sym minor-mode-list)
-                           (string-match-p "-minor-mode\\'"
-                                           (symbol-name sym))))))
+		  (not (string-match-p "-minor-mode\\'" (symbol-name sym)))))
 	   nil nil nil default nil)))
     (cond
      ((equal mode "nil") nil)
      ((and (stringp mode) (fboundp (intern mode))) (intern mode))
      (t mode))))
 
-(defun modify-file-local-variable-message (variable value op)
-  (let* ((not-value (make-symbol ""))
-	 (old-value (cond ((eq variable 'mode)
-			   major-mode)
-			  ((eq variable 'coding)
-			   buffer-file-coding-system)
-			  (t (if (and (symbolp variable)
-				      (boundp variable))
-				 (symbol-value variable)
-			       not-value))))
-	 (new-value (if (eq op 'delete)
-			(cond ((eq variable 'mode)
-			       (default-value 'major-mode))
-			      ((eq variable 'coding)
-			       (default-value 'buffer-file-coding-system))
-			      (t (if (and (symbolp variable)
-					  (default-boundp variable))
-				     (default-value variable)
-				   not-value)))
-		      (cond ((eq variable 'mode)
-			     (let ((string (format "%S" value)))
-			       (if (string-match-p "-mode\\'" string)
-				   value
-				 (intern (concat string "-mode")))))
-			    (t value)))))
-    (when (or (eq old-value not-value)
-	      (eq new-value not-value)
-	      (not (equal old-value new-value)))
-      (message "%s" (substitute-command-keys
-		     "For this change to take effect revisit file using \\[revert-buffer]")))))
-
-(defun modify-file-local-variable (variable value op &optional interactive)
+(defun modify-file-local-variable (variable value op)
   "Modify file-local VARIABLE in Local Variables depending on operation OP.
 
 If OP is `add-or-replace' then delete all existing settings of
@@ -229,13 +198,10 @@ from the Local Variables list ignoring the input argument VALUE."
 	   ((eq variable 'mode) (goto-char beg))
 	   ((null replaced-pos) (goto-char end))
 	   (replaced-pos (goto-char replaced-pos)))
-	  (insert (format "%s%S: %S%s\n" prefix variable value suffix))))
-
-      (when interactive
-	(modify-file-local-variable-message variable value op)))))
+	  (insert (format "%s%S: %S%s\n" prefix variable value suffix)))))))
 
 ;;;###autoload
-(defun add-file-local-variable (variable value &optional interactive)
+(defun add-file-local-variable (variable value)
   "Add file-local VARIABLE with its VALUE to the Local Variables list.
 
 This command deletes all existing settings of VARIABLE (except `mode'
@@ -247,17 +213,17 @@ then this function adds the first line containing the string
 `Local Variables:' and the last line containing the string `End:'."
   (interactive
    (let ((variable (read-file-local-variable "Add file-local variable")))
-     (list variable (read-file-local-variable-value variable) t)))
-  (modify-file-local-variable variable value 'add-or-replace interactive))
+     (list variable (read-file-local-variable-value variable))))
+  (modify-file-local-variable variable value 'add-or-replace))
 
 ;;;###autoload
-(defun delete-file-local-variable (variable &optional interactive)
+(defun delete-file-local-variable (variable)
   "Delete all settings of file-local VARIABLE from the Local Variables list."
   (interactive
-   (list (read-file-local-variable "Delete file-local variable") t))
-  (modify-file-local-variable variable nil 'delete interactive))
+   (list (read-file-local-variable "Delete file-local variable")))
+  (modify-file-local-variable variable nil 'delete))
 
-(defun modify-file-local-variable-prop-line (variable value op &optional interactive)
+(defun modify-file-local-variable-prop-line (variable value op)
   "Modify file-local VARIABLE in the -*- line depending on operation OP.
 
 If OP is `add-or-replace' then delete all existing settings of
@@ -290,40 +256,19 @@ from the -*- line ignoring the input argument VALUE."
 
 	(goto-char (point-min))
 
-	;; Skip interpreter magic line "#!" or XML declaration.
-	(when (or (looking-at file-auto-mode-skip)
-		  (looking-at "<\\?xml[^>\n]*>$"))
+	;; Skip interpreter magic line "#!"
+	(when (looking-at "^\\(#!\\|'\\\\\"\\)")
 	  (forward-line 1))
 
 	(let ((comment-style 'plain)
-	      (comment-start (or comment-start ";;; "))
-	      (line-beg (line-beginning-position))
-	      (ce nil))
-	  (comment-normalize-vars)
-	  ;; If the first line contains a comment.
-	  (if (save-excursion
-		(and (looking-at comment-start-skip)
-		     (goto-char (match-end 0))
-		     (re-search-forward comment-end-skip)
-		     (goto-char (match-beginning 0))
-		     ;; Still on the same line?
-		     (equal line-beg (line-beginning-position))
-		     (setq ce (point))))
-	      ;; Add local variables to the end of the existing comment.
-	      (progn
-		(goto-char ce)
-		(insert "  -*-")
-		(setq beg (point-marker))
-		(setq end (point-marker))
-		(insert "-*-"))
-	    ;; Otherwise, add a new comment before the first line.
-	    (comment-region
-	     (prog1 (point)
-	       (insert "-*-")
-	       (setq beg (point-marker))
-	       (setq end (point-marker))
-	       (insert "-*-\n"))
-	     (point)))))
+	      (comment-start (or comment-start ";;; ")))
+	  (comment-region
+	   (prog1 (point)
+	     (insert "-*-")
+	     (setq beg (point-marker))
+	     (setq end (point-marker))
+	     (insert "-*-\n"))
+	   (point))))
 
       (cond
        ((looking-at "[ \t]*\\([^ \t\n\r:;]+\\)\\([ \t]*-\\*-\\)")
@@ -371,19 +316,14 @@ from the -*- line ignoring the input argument VALUE."
 	   ((null replaced-pos) (goto-char end))
 	   (replaced-pos (goto-char replaced-pos)))
 	  (if (and (not (eq (char-before) ?\;))
-		   (not (equal (point) (marker-position beg)))
-		   ;; When existing `-*- -*-' is empty, beg > end.
-		   (not (> (marker-position beg) (marker-position end))))
+		   (not (equal (point) (marker-position beg))))
 	      (insert ";"))
 	  (unless (eq (char-before) ?\s) (insert " "))
 	  (insert (format "%S: %S;" variable value))
-	  (unless (eq (char-after) ?\s) (insert " ")))))
-
-      (when interactive
-	(modify-file-local-variable-message variable value op)))))
+	  (unless (eq (char-after) ?\s) (insert " "))))))))
 
 ;;;###autoload
-(defun add-file-local-variable-prop-line (variable value &optional interactive)
+(defun add-file-local-variable-prop-line (variable value)
   "Add file-local VARIABLE with its VALUE to the -*- line.
 
 This command deletes all existing settings of VARIABLE (except `mode'
@@ -394,15 +334,15 @@ If there is no -*- line at the beginning of the current file buffer
 then this function adds it."
   (interactive
    (let ((variable (read-file-local-variable "Add -*- file-local variable")))
-     (list variable (read-file-local-variable-value variable) t)))
-  (modify-file-local-variable-prop-line variable value 'add-or-replace interactive))
+     (list variable (read-file-local-variable-value variable))))
+  (modify-file-local-variable-prop-line variable value 'add-or-replace))
 
 ;;;###autoload
-(defun delete-file-local-variable-prop-line (variable &optional interactive)
+(defun delete-file-local-variable-prop-line (variable)
   "Delete all settings of file-local VARIABLE from the -*- line."
   (interactive
-   (list (read-file-local-variable "Delete -*- file-local variable") t))
-  (modify-file-local-variable-prop-line variable nil 'delete interactive))
+   (list (read-file-local-variable "Delete -*- file-local variable")))
+  (modify-file-local-variable-prop-line variable nil 'delete))
 
 (defvar auto-insert) ; from autoinsert.el
 
@@ -476,7 +416,7 @@ from the MODE alist ignoring the input argument VALUE."
 
       ;; Insert modified alist of directory-local variables.
       (insert ";;; Directory Local Variables\n")
-      (insert ";;; For more information see (info \"(emacs) Directory Variables\")\n\n")
+      (insert ";;; See Info node `(emacs) Directory Variables' for more information.\n\n")
       (pp (sort variables
 		(lambda (a b)
 		  (cond

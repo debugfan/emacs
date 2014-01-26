@@ -1,5 +1,5 @@
 /* Low-level bidirectional buffer/string-scanning functions for GNU Emacs.
-   Copyright (C) 2000-2001, 2004-2005, 2009-2014 Free Software
+   Copyright (C) 2000-2001, 2004-2005, 2009-2013 Free Software
    Foundation, Inc.
 
 This file is part of GNU Emacs.
@@ -61,21 +61,21 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "character.h"
 #include "buffer.h"
 #include "dispextern.h"
-#include "region-cache.h"
 
 static bool bidi_initialized = 0;
 
 static Lisp_Object bidi_type_table, bidi_mirror_table;
 
-#define BIDI_EOB   (-1)
+#define LRM_CHAR   0x200E
+#define RLM_CHAR   0x200F
+#define BIDI_EOB   -1
 
 /* Data type for describing the bidirectional character categories.  */
 typedef enum {
   UNKNOWN_BC,
   NEUTRAL,
   WEAK,
-  STRONG,
-  EXPLICIT_FORMATTING
+  STRONG
 } bidi_category_t;
 
 /* UAX#9 says to search only for L, AL, or R types of characters, and
@@ -114,9 +114,13 @@ bidi_get_type (int ch, bidi_dir_t override)
   if (default_type == UNKNOWN_BT)
     emacs_abort ();
 
+  if (override == NEUTRAL_DIR)
+    return default_type;
+
   switch (default_type)
     {
-      case WEAK_BN:
+      /* Although UAX#9 does not tell, it doesn't make sense to
+	 override NEUTRAL_B and LRM/RLM characters.  */
       case NEUTRAL_B:
       case LRE:
       case LRO:
@@ -124,20 +128,20 @@ bidi_get_type (int ch, bidi_dir_t override)
       case RLO:
       case PDF:
 	return default_type;
-	/* FIXME: The isolate controls are treated as BN until we add
-	   support for UBA v6.3.  */
-      case LRI:
-      case RLI:
-      case FSI:
-      case PDI:
-	return WEAK_BN;
       default:
-	if (override == L2R)
-	  return STRONG_L;
-	else if (override == R2L)
-	  return STRONG_R;
-	else
-	  return default_type;
+	switch (ch)
+	  {
+	    case LRM_CHAR:
+	    case RLM_CHAR:
+	      return default_type;
+	    default:
+	      if (override == L2R) /* X6 */
+		return STRONG_L;
+	      else if (override == R2L)
+		return STRONG_R;
+	      else
+		emacs_abort ();	/* can't happen: handled above */
+	  }
     }
 }
 
@@ -158,7 +162,12 @@ bidi_get_category (bidi_type_t type)
       case STRONG_L:
       case STRONG_R:
       case STRONG_AL:
+      case LRE:
+      case LRO:
+      case RLE:
+      case RLO:
 	return STRONG;
+      case PDF:		/* ??? really?? */
       case WEAK_EN:
       case WEAK_ES:
       case WEAK_ET:
@@ -166,30 +175,12 @@ bidi_get_category (bidi_type_t type)
       case WEAK_CS:
       case WEAK_NSM:
       case WEAK_BN:
-	/* FIXME */
-      case LRI:
-      case RLI:
-      case FSI:
-      case PDI:
 	return WEAK;
       case NEUTRAL_B:
       case NEUTRAL_S:
       case NEUTRAL_WS:
       case NEUTRAL_ON:
 	return NEUTRAL;
-      case LRE:
-      case LRO:
-      case RLE:
-      case RLO:
-      case PDF:
-#if 0
-	/* FIXME: This awaits implementation of isolate support.  */
-      case LRI:
-      case RLI:
-      case FSI:
-      case PDI:
-#endif
-	return EXPLICIT_FORMATTING;
       default:
 	emacs_abort ();
     }
@@ -878,8 +869,8 @@ bidi_line_init (struct bidi_it *bidi_it)
    are zero-based character positions in S, BEGBYTE is byte position
    corresponding to BEG.  UNIBYTE means S is a unibyte string.  */
 static ptrdiff_t
-bidi_count_bytes (const unsigned char *s, ptrdiff_t beg,
-		  ptrdiff_t begbyte, ptrdiff_t end, bool unibyte)
+bidi_count_bytes (const unsigned char *s, const ptrdiff_t beg,
+		  const ptrdiff_t begbyte, const ptrdiff_t end, bool unibyte)
 {
   ptrdiff_t pos = beg;
   const unsigned char *p = s + begbyte, *start = p;
@@ -919,7 +910,7 @@ bidi_char_at_pos (ptrdiff_t bytepos, const unsigned char *s, bool unibyte)
   return STRING_CHAR (s);
 }
 
-/* Fetch and return the character at CHARPOS/BYTEPOS.  If that
+/* Fetch and return the character at BYTEPOS/CHARPOS.  If that
    character is covered by a display string, treat the entire run of
    covered characters as a single character, either u+2029 or u+FFFC,
    and return their combined length in CH_LEN and NCHARS.  DISP_POS
@@ -934,9 +925,8 @@ bidi_char_at_pos (ptrdiff_t bytepos, const unsigned char *s, bool unibyte)
    string to iterate, or NULL if iterating over a buffer or a Lisp
    string; in the latter case, STRING->lstring is the Lisp string.  */
 static int
-bidi_fetch_char (ptrdiff_t charpos, ptrdiff_t bytepos, ptrdiff_t *disp_pos,
+bidi_fetch_char (ptrdiff_t bytepos, ptrdiff_t charpos, ptrdiff_t *disp_pos,
 		 int *disp_prop, struct bidi_string_data *string,
-		 struct window *w,
 		 bool frame_window_p, ptrdiff_t *ch_len, ptrdiff_t *nchars)
 {
   int ch;
@@ -950,7 +940,7 @@ bidi_fetch_char (ptrdiff_t charpos, ptrdiff_t bytepos, ptrdiff_t *disp_pos,
   if (charpos < endpos && charpos > *disp_pos)
     {
       SET_TEXT_POS (pos, charpos, bytepos);
-      *disp_pos = compute_display_string_pos (&pos, string, w, frame_window_p,
+      *disp_pos = compute_display_string_pos (&pos, string, frame_window_p,
 					      disp_prop);
     }
 
@@ -1055,7 +1045,7 @@ bidi_fetch_char (ptrdiff_t charpos, ptrdiff_t bytepos, ptrdiff_t *disp_pos,
       && *disp_prop)
     {
       SET_TEXT_POS (pos, charpos + *nchars, bytepos + *ch_len);
-      *disp_pos = compute_display_string_pos (&pos, string, w, frame_window_p,
+      *disp_pos = compute_display_string_pos (&pos, string, frame_window_p,
 					      disp_prop);
     }
 
@@ -1094,53 +1084,6 @@ bidi_at_paragraph_end (ptrdiff_t charpos, ptrdiff_t bytepos)
   return val;
 }
 
-/* If the user has requested the long scans caching, make sure that
-   BIDI cache is enabled.  Otherwise, make sure it's disabled.  */
-
-static struct region_cache *
-bidi_paragraph_cache_on_off (void)
-{
-  struct buffer *cache_buffer = current_buffer;
-  bool indirect_p = false;
-
-  /* For indirect buffers, make sure to use the cache of their base
-     buffer.  */
-  if (cache_buffer->base_buffer)
-    {
-      cache_buffer = cache_buffer->base_buffer;
-      indirect_p = true;
-    }
-
-  /* Don't turn on or off the cache in the base buffer, if the value
-     of cache-long-scans of the base buffer is inconsistent with that.
-     This is because doing so will just make the cache pure overhead,
-     since if we turn it on via indirect buffer, it will be
-     immediately turned off by its base buffer.  */
-  if (NILP (BVAR (current_buffer, cache_long_scans)))
-    {
-      if (!indirect_p
-	  || NILP (BVAR (cache_buffer, cache_long_scans)))
-	{
-	  if (cache_buffer->bidi_paragraph_cache)
-	    {
-	      free_region_cache (cache_buffer->bidi_paragraph_cache);
-	      cache_buffer->bidi_paragraph_cache = 0;
-	    }
-	}
-      return NULL;
-    }
-  else
-    {
-      if (!indirect_p
-	  || !NILP (BVAR (cache_buffer, cache_long_scans)))
-	{
-	  if (!cache_buffer->bidi_paragraph_cache)
-	    cache_buffer->bidi_paragraph_cache = new_region_cache ();
-	}
-      return cache_buffer->bidi_paragraph_cache;
-    }
-}
-
 /* On my 2005-vintage machine, searching back for paragraph start
    takes ~1 ms per line.  And bidi_paragraph_init is called 4 times
    when user types C-p.  The number below limits each call to
@@ -1156,12 +1099,7 @@ bidi_find_paragraph_start (ptrdiff_t pos, ptrdiff_t pos_byte)
 {
   Lisp_Object re = paragraph_start_re;
   ptrdiff_t limit = ZV, limit_byte = ZV_BYTE;
-  struct region_cache *bpc = bidi_paragraph_cache_on_off ();
-  ptrdiff_t n = 0, oldpos = pos, next;
-  struct buffer *cache_buffer = current_buffer;
-
-  if (cache_buffer->base_buffer)
-    cache_buffer = cache_buffer->base_buffer;
+  ptrdiff_t n = 0;
 
   while (pos_byte > BEGV_BYTE
 	 && n++ < MAX_PARAGRAPH_SEARCH
@@ -1171,22 +1109,11 @@ bidi_find_paragraph_start (ptrdiff_t pos, ptrdiff_t pos_byte)
 	 display string?  And what if a display string covering some
 	 of the text over which we scan back includes
 	 paragraph_start_re?  */
-      DEC_BOTH (pos, pos_byte);
-      if (bpc && region_cache_backward (cache_buffer, bpc, pos, &next))
-	{
-	  pos = next, pos_byte = CHAR_TO_BYTE (pos);
-	  break;
-	}
-      else
-	pos = find_newline_no_quit (pos, pos_byte, -1, &pos_byte);
+      pos = find_next_newline_no_quit (pos - 1, -1);
+      pos_byte = CHAR_TO_BYTE (pos);
     }
   if (n >= MAX_PARAGRAPH_SEARCH)
-    pos = BEGV, pos_byte = BEGV_BYTE;
-  if (bpc)
-    know_region_cache (cache_buffer, bpc, pos, oldpos);
-  /* Positions returned by the region cache are not limited to
-     BEGV..ZV range, so we limit them here.  */
-  pos_byte = clip_to_bounds (BEGV_BYTE, pos_byte, ZV_BYTE);
+    pos_byte = BEGV_BYTE;
   return pos_byte;
 }
 
@@ -1296,8 +1223,8 @@ bidi_paragraph_init (bidi_dir_t dir, struct bidi_it *bidi_it, bool no_default_p)
 	bytepos = pstartbyte;
 	if (!string_p)
 	  pos = BYTE_TO_CHAR (bytepos);
-	ch = bidi_fetch_char (pos, bytepos, &disp_pos, &disp_prop,
-			      &bidi_it->string, bidi_it->w,
+	ch = bidi_fetch_char (bytepos, pos, &disp_pos, &disp_prop,
+			      &bidi_it->string,
 			      bidi_it->frame_window_p, &ch_len, &nchars);
 	type = bidi_get_type (ch, NEUTRAL_DIR);
 
@@ -1324,8 +1251,8 @@ bidi_paragraph_init (bidi_dir_t dir, struct bidi_it *bidi_it, bool no_default_p)
 		&& bidi_at_paragraph_end (pos, bytepos) >= -1)
 	      break;
 	    /* Fetch next character and advance to get past it.  */
-	    ch = bidi_fetch_char (pos, bytepos, &disp_pos,
-				  &disp_prop, &bidi_it->string, bidi_it->w,
+	    ch = bidi_fetch_char (bytepos, pos, &disp_pos,
+				  &disp_prop, &bidi_it->string,
 				  bidi_it->frame_window_p, &ch_len, &nchars);
 	    pos += nchars;
 	    bytepos += ch_len;
@@ -1355,7 +1282,8 @@ bidi_paragraph_init (bidi_dir_t dir, struct bidi_it *bidi_it, bool no_default_p)
 		    /* FXIME: What if p is covered by a display
 		       string?  See also a FIXME inside
 		       bidi_find_paragraph_start.  */
-		    DEC_BOTH (p, pbyte);
+		    p--;
+		    pbyte = CHAR_TO_BYTE (p);
 		    prevpbyte = bidi_find_paragraph_start (p, pbyte);
 		  }
 		pstartbyte = prevpbyte;
@@ -1428,19 +1356,15 @@ bidi_resolve_explicit_1 (struct bidi_it *bidi_it)
 	       : bidi_it->string.s);
 
 	  if (bidi_it->charpos < 0)
-	    bidi_it->charpos = bidi_it->bytepos = 0;
-	  eassert (bidi_it->bytepos == bidi_count_bytes (p, 0, 0,
-							 bidi_it->charpos,
-							 bidi_it->string.unibyte));
+	    bidi_it->charpos = 0;
+	  bidi_it->bytepos = bidi_count_bytes (p, 0, 0, bidi_it->charpos,
+					       bidi_it->string.unibyte);
 	}
       else
 	{
 	  if (bidi_it->charpos < BEGV)
-	    {
-	      bidi_it->charpos = BEGV;
-	      bidi_it->bytepos = BEGV_BYTE;
-	    }
-	  eassert (bidi_it->bytepos == CHAR_TO_BYTE (bidi_it->charpos));
+	    bidi_it->charpos = BEGV;
+	  bidi_it->bytepos = CHAR_TO_BYTE (bidi_it->charpos);
 	}
     }
   /* Don't move at end of buffer/string.  */
@@ -1473,10 +1397,9 @@ bidi_resolve_explicit_1 (struct bidi_it *bidi_it)
       /* Fetch the character at BYTEPOS.  If it is covered by a
 	 display string, treat the entire run of covered characters as
 	 a single character u+FFFC.  */
-      curchar = bidi_fetch_char (bidi_it->charpos, bidi_it->bytepos,
+      curchar = bidi_fetch_char (bidi_it->bytepos, bidi_it->charpos,
 				 &bidi_it->disp_pos, &bidi_it->disp_prop,
-				 &bidi_it->string, bidi_it->w,
-				 bidi_it->frame_window_p,
+				 &bidi_it->string, bidi_it->frame_window_p,
 				 &bidi_it->ch_len, &bidi_it->nchars);
     }
   bidi_it->ch = curchar;
@@ -2267,8 +2190,8 @@ bidi_level_of_next_char (struct bidi_it *bidi_it)
       if (bidi_it->nchars <= 0)
 	emacs_abort ();
       do {
-	ch = bidi_fetch_char (cpos += nc, bpos += clen, &disp_pos, &dpp, &bs,
-			      bidi_it->w, fwp, &clen, &nc);
+	ch = bidi_fetch_char (bpos += clen, cpos += nc, &disp_pos, &dpp, &bs,
+			      fwp, &clen, &nc);
 	if (ch == '\n' || ch == BIDI_EOB)
 	  chtype = NEUTRAL_B;
 	else

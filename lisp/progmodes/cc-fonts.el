@@ -1,6 +1,6 @@
 ;;; cc-fonts.el --- font lock support for CC Mode
 
-;; Copyright (C) 2002-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2002-2013 Free Software Foundation, Inc.
 
 ;; Authors:    2003- Alan Mackenzie
 ;;             2002- Martin Stjernholm
@@ -176,6 +176,7 @@
       'font-lock-negation-char-face))
 
 (cc-bytecomp-defun face-inverse-video-p) ; Only in Emacs.
+(cc-bytecomp-defun face-property-instance) ; Only in XEmacs.
 
 (defun c-make-inverse-face (oldface newface)
   ;; Emacs and XEmacs have completely different face manipulation
@@ -1307,8 +1308,7 @@ casts and declarations are fontified.  Used on level 2 and higher."
 			    (goto-char match-pos)
 			    (backward-char)
 			    (c-backward-token-2)
-			    (or (looking-at c-block-stmt-2-key)
-				(looking-at c-block-stmt-1-2-key))))
+			    (looking-at c-block-stmt-2-key)))
 		     (setq context nil
 			   c-restricted-<>-arglists t))
 		    ;; Near BOB.
@@ -1473,7 +1473,11 @@ casts and declarations are fontified.  Used on level 2 and higher."
 		      (numberp (car paren-state))
 		      (save-excursion
 			(goto-char (car paren-state))
-			(c-backward-over-enum-header)))))
+			(c-backward-token-2)
+			(or (looking-at c-brace-list-key)
+			    (progn
+			      (c-backward-token-2)
+			      (looking-at c-brace-list-key)))))))
 	      (c-forward-token-2)
 	      nil)
 
@@ -1563,7 +1567,12 @@ casts and declarations are fontified.  Used on level 2 and higher."
 	   (eq (char-after encl-pos) ?\{)
 	   (save-excursion
 	     (goto-char encl-pos)
-	     (c-backward-over-enum-header)))
+	     (c-backward-syntactic-ws)
+	     (c-simple-skip-symbol-backward)
+	     (or (looking-at c-brace-list-key) ; "enum"
+		 (progn (c-backward-syntactic-ws)
+			(c-simple-skip-symbol-backward)
+			(looking-at c-brace-list-key)))))
       (c-syntactic-skip-backward "^{," nil t)
       (c-put-char-property (1- (point)) 'c-type 'c-decl-id-start)
 
@@ -1884,7 +1893,7 @@ higher."
 		"\\)\\>"
 		;; Disallow various common punctuation chars that can't come
 		;; before the '{' of the enum list, to avoid searching too far.
-		"[^\]\[{}();/#=]*"
+		"[^\]\[{}();,/#=]*"
 		"{")
 	       '((c-font-lock-declarators limit t nil)
 		 (save-match-data
@@ -2040,7 +2049,7 @@ styles specified by `c-doc-comment-style'.")
 
 (defconst c-font-lock-keywords-3 (c-lang-const c-matchers-3 c)
   "Accurate normal font locking for C mode.
-Like the variable `c-font-lock-keywords-2' but detects declarations in a more
+Like `c-font-lock-keywords-2' but detects declarations in a more
 accurate way that works in most cases for arbitrary types without the
 need for `c-font-lock-extra-types'.")
 
@@ -2198,7 +2207,7 @@ styles specified by `c-doc-comment-style'.")
 
 (defconst c++-font-lock-keywords-3 (c-lang-const c-matchers-3 c++)
   "Accurate normal font locking for C++ mode.
-Like the variable `c++-font-lock-keywords-2' but detects declarations in a more
+Like `c++-font-lock-keywords-2' but detects declarations in a more
 accurate way that works in most cases for arbitrary types without the
 need for `c++-font-lock-extra-types'.")
 
@@ -2304,7 +2313,7 @@ comment styles specified by `c-doc-comment-style'.")
 
 (defconst objc-font-lock-keywords-3 (c-lang-const c-matchers-3 objc)
   "Accurate normal font locking for Objective-C mode.
-Like the variable `objc-font-lock-keywords-2' but detects declarations in a more
+Like `objc-font-lock-keywords-2' but detects declarations in a more
 accurate way that works in most cases for arbitrary types without the
 need for `objc-font-lock-extra-types'.")
 
@@ -2347,7 +2356,7 @@ comment styles specified by `c-doc-comment-style'.")
 
 (defconst java-font-lock-keywords-3 (c-lang-const c-matchers-3 java)
   "Accurate normal font locking for Java mode.
-Like variable `java-font-lock-keywords-2' but detects declarations in a more
+Like `java-font-lock-keywords-2' but detects declarations in a more
 accurate way that works in most cases for arbitrary types without the
 need for `java-font-lock-extra-types'.")
 
@@ -2380,7 +2389,7 @@ styles specified by `c-doc-comment-style'.")
 
 (defconst idl-font-lock-keywords-3 (c-lang-const c-matchers-3 idl)
   "Accurate normal font locking for CORBA IDL mode.
-Like the variable `idl-font-lock-keywords-2' but detects declarations in a more
+Like `idl-font-lock-keywords-2' but detects declarations in a more
 accurate way that works in most cases for arbitrary types without the
 need for `idl-font-lock-extra-types'.")
 
@@ -2413,7 +2422,7 @@ comment styles specified by `c-doc-comment-style'.")
 
 (defconst pike-font-lock-keywords-3 (c-lang-const c-matchers-3 pike)
   "Accurate normal font locking for Pike mode.
-Like the variable `pike-font-lock-keywords-2' but detects declarations in a more
+Like `pike-font-lock-keywords-2' but detects declarations in a more
 accurate way that works in most cases for arbitrary types without the
 need for `pike-font-lock-extra-types'.")
 
@@ -2477,7 +2486,7 @@ need for `pike-font-lock-extra-types'.")
 	      (setq comment-beg nil))
 	    (setq region-beg comment-beg))
 
-      (if (elt (parse-partial-sexp comment-beg (+ comment-beg 2)) 7)
+      (if (eq (elt (parse-partial-sexp comment-beg (+ comment-beg 2)) 7) t)
 	  ;; Collect a sequence of doc style line comments.
 	  (progn
 	    (goto-char comment-beg)

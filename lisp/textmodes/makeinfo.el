@@ -1,6 +1,6 @@
 ;;; makeinfo.el --- run makeinfo conveniently
 
-;; Copyright (C) 1991, 1993, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1991, 1993, 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: Robert J. Chassell
 ;; Maintainer: FSF
@@ -211,7 +211,7 @@ nonsensical results."
 	  (with-current-buffer buffer
 	    (revert-buffer t t))
 	(setq buffer (find-file-noselect makeinfo-output-file-name)))
-      (if (window-dedicated-p)
+      (if (window-dedicated-p (selected-window))
 	  (switch-to-buffer-other-window buffer)
 	(switch-to-buffer buffer)))
     (goto-char (point-min))))

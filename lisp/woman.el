@@ -1,6 +1,6 @@
 ;;; woman.el --- browse UN*X manual pages `wo (without) man'
 
-;; Copyright (C) 2000-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2000-2013 Free Software Foundation, Inc.
 
 ;; Author: Francis J. Wright <F.J.Wright@qmul.ac.uk>
 ;; Maintainer: FSF
@@ -438,7 +438,7 @@ As a special case, if PATHS is nil then replace it by calling
   (if (memq system-type '(windows-nt ms-dos))
       (cond ((null paths)
 	     (mapcar 'woman-Cyg-to-Win (woman-parse-man.conf)))
-	    ((string-match-p ";" paths)
+	    ((string-match ";" paths)
 	     ;; Assume DOS-style path-list...
 	     (woman-mapcan		; splice list into list
 	      (lambda (x)
@@ -446,7 +446,7 @@ As a special case, if PATHS is nil then replace it by calling
 		    (list x)
 		  (mapcar 'woman-Cyg-to-Win (woman-parse-man.conf))))
 	      (parse-colon-path paths)))
-	    ((string-match-p "\\`[a-zA-Z]:" paths)
+	    ((string-match "\\`[a-zA-Z]:" paths)
 	     ;; Assume single DOS-style path...
 	     (list paths))
 	    (t
@@ -949,7 +949,6 @@ or different fonts."
 
 (defun woman-default-faces ()
   "Set foreground colors of italic and bold faces to their default values."
-  (declare (obsolete choose-completion-guess-base-position "23.2"))
   (interactive)
   (face-spec-set 'woman-italic (face-user-default-spec 'woman-italic))
   (face-spec-set 'woman-bold (face-user-default-spec 'woman-bold)))
@@ -957,7 +956,6 @@ or different fonts."
 (defun woman-monochrome-faces ()
   "Set foreground colors of italic and bold faces to that of the default face.
 This is usually either black or white."
-  (declare (obsolete choose-completion-guess-base-position "23.2"))
   (interactive)
   (set-face-foreground 'woman-italic 'unspecified)
   (set-face-foreground 'woman-bold 'unspecified))
@@ -974,7 +972,7 @@ This is usually either black or white."
     ;; With NTEmacs 20.5, the PATTERN option to `x-list-fonts' does
     ;; not seem to work and fonts may be repeated, so ...
     (dolist (font fonts)
-      (and (string-match-p "-Symbol-" font)
+      (and (string-match "-Symbol-" font)
 	   (not (member font symbol-fonts))
 	   (setq symbol-fonts (cons font symbol-fonts))))
     symbol-fonts))
@@ -1173,7 +1171,7 @@ Used non-interactively, arguments are optional: if given then TOPIC
 should be a topic string and non-nil RE-CACHE forces re-caching."
   (interactive (list nil current-prefix-arg))
   ;; The following test is for non-interactive calls via gnudoit etc.
-  (if (or (not (stringp topic)) (string-match-p "\\S " topic))
+  (if (or (not (stringp topic)) (string-match "\\S " topic))
       (let ((file-name (woman-file-name topic re-cache)))
 	(if file-name
 	    (woman-find-file file-name)
@@ -1305,12 +1303,12 @@ cache to be re-read."
        ((null (cdr files)) (car (car files))) ; only 1 file for topic.
        (t
 	;; Multiple files for topic, so must select 1.
-	;; Run the command `minibuffer-complete' in order to automatically
-	;; complete the minibuffer contents as far as possible.
-        (minibuffer-with-setup-hook
-            (lambda () (let ((this-command this-command)) (minibuffer-complete)))
-          (completing-read "Manual file: " files nil 1
-                           (try-completion "" files) 'woman-file-history)))))))
+	;; Unread the command event (TAB = ?\t = 9) that runs the command
+	;; `minibuffer-complete' in order to automatically complete the
+	;; minibuffer contents as far as possible.
+	(setq unread-command-events '(9)) ; and delete any type-ahead!
+	(completing-read "Manual file: " files nil 1
+			 (try-completion "" files) 'woman-file-history))))))
 
 (defun woman-select (predicate list)
   "Select unique elements for which PREDICATE is true in LIST.
@@ -1552,13 +1550,11 @@ Also make each path-info component into a list.
     (woman-dired-define-keys)
   (add-hook 'dired-mode-hook 'woman-dired-define-keys))
 
-(declare-function dired-get-filename "dired"
-                  (&optional localp no-error-if-not-filep))
-
 ;;;###autoload
 (defun woman-dired-find-file ()
   "In dired, run the WoMan man-page browser on this file."
   (interactive)
+  ;; dired-get-filename is defined in dired.el
   (woman-find-file (dired-get-filename)))
 
 
@@ -1614,7 +1610,7 @@ decompress the file if appropriate.  See the documentation for the
 	(let* ((bufname (file-name-nondirectory file-name))
 	       (case-fold-search t)
 	       (compressed
-		(and (string-match-p woman-file-compression-regexp bufname) t)))
+		(not (not (string-match woman-file-compression-regexp bufname)))))
 	  (if compressed
 	      (setq bufname (file-name-sans-extension bufname)))
 	  (setq bufname (if exists
@@ -1756,7 +1752,7 @@ Leave point at end of new text.  Return length of inserted text."
       ;; Co-operate with auto-compression mode:
       (if (and compressed
 	       (or (eq compressed t)
-		   (string-match-p woman-file-compression-regexp filename))
+		   (string-match woman-file-compression-regexp filename))
 	       ;; (not auto-compression-mode)
 	       (not (rassq 'jka-compr-handler file-name-handler-alist)) )
 	  ;; (error "Compressed file requires Auto File Decompression turned on")
@@ -1830,6 +1826,8 @@ Argument EVENT is the invoking mouse event."
    ["Use Full Frame Width" woman-toggle-fill-frame
     :active t :style toggle :selected woman-fill-frame]
    ["Reformat Last Man Page" woman-reformat-last-file t]
+   ["Use Monochrome Main Faces" woman-monochrome-faces t]
+   ["Use Default Main Faces" woman-default-faces t]
    ["Make Contents Menu" (woman-imenu t) (not woman-imenu-done)]
    "--"
    ["Describe (Wo)Man Mode" describe-mode t]
@@ -1948,9 +1946,6 @@ Optional argument REDRAW, if non-nil, forces mode line to be updated."
   (setq woman-fill-frame (not woman-fill-frame))
   (message "Woman fill column set to %s."
 	   (if woman-fill-frame "frame width" woman-fill-column)))
-
-(declare-function apropos-print "apropos"
-                  (do-keys spacing &optional text nosubst))
 
 (defun woman-mini-help ()
   "Display WoMan commands and user options in an `apropos' buffer."
@@ -2192,7 +2187,7 @@ To be called on original buffer and any .so insertions."
   (let ((face-list (face-list)))
     (dolist (face face-list)
       (let ((face-name (symbol-name face)))
-	(if (and (string-match-p "\\`woman-" face-name)
+	(if (and (string-match "\\`woman-" face-name)
 		 (face-underline-p face))
 	    (let ((face-no-ul (intern (concat face-name "-no-ul"))))
 	      (copy-face face face-no-ul)
@@ -2300,7 +2295,7 @@ Currently set only from '\" t in the first line of the source file.")
 
     ;; Process \k escapes BEFORE changing tab width (?):
     (goto-char from)
-    (woman-mark-horizontal-position)
+    (woman-mark-horizonal-position)
 
     ;; Set buffer-local variables:
     (setq fill-column woman-fill-column
@@ -3029,8 +3024,6 @@ Leave point at TO (which should be a marker)."
   "Delete any double-quote characters up to the end of the line."
   (woman-unquote (save-excursion (end-of-line) (point-marker))))
 
-(defvar woman1-unquote)          ; bound locally by woman1-roff-buffer
-
 (defun woman1-roff-buffer ()
   "Process non-breaking requests."
   (let ((case-fold-search t)
@@ -3070,6 +3063,8 @@ Leave point at TO (which should be a marker)."
 (defun woman1-I ()
   ".I -- Set words of current line in italic font."
   (woman1-B-or-I ".ft I\n"))
+
+(defvar woman1-unquote)          ; bound locally by woman1-roff-buffer
 
 (defun woman1-B-or-I (B-or-I)
   ".B/I -- Set words of current line in bold/italic font.
@@ -3452,7 +3447,7 @@ Format paragraphs upto TO.  Supports special chars.
 Each element has the form (KEY VALUE . INC) -- inc may be nil.
 Also bound locally in `woman2-roff-buffer'.")
 
-(defun woman-mark-horizontal-position ()
+(defun woman-mark-horizonal-position ()
   "\\kx -- Store current horizontal position in INPUT LINE in register x."
   (while (re-search-forward "\\\\k\\(.\\)" nil t)
     (goto-char (match-beginning 0))

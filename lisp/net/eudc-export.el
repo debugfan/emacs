@@ -1,9 +1,9 @@
-;;; eudc-export.el --- functions to export EUDC query results -*- coding: utf-8 -*-
+;;; eudc-export.el --- functions to export EUDC query results
 
-;; Copyright (C) 1998-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1998-2013 Free Software Foundation, Inc.
 
 ;; Author: Oscar Figueiredo <oscar@cpe.fr>
-;; Maintainer: Pavel JanÃ­k <Pavel@Janik.cz>
+;; Maintainer: Pavel Janík <Pavel@Janik.cz>
 ;; Keywords: comm
 ;; Package: eudc
 
@@ -31,16 +31,16 @@
 
 (require 'eudc)
 
-;; NOERROR is so we can compile it.
-(require 'bbdb nil t)
-(require 'bbdb-com nil t)
+(if (not (featurep 'bbdb))
+    (load-library "bbdb"))
+(if (not (featurep 'bbdb-com))
+    (load-library "bbdb-com"))
 
 (defun eudc-create-bbdb-record (record &optional silent)
   "Create a BBDB record using the RECORD alist.
 RECORD is an alist of (KEY . VALUE) where KEY is a directory attribute name
 symbol and VALUE is the corresponding value for the record.
 If SILENT is non-nil then the created BBDB record is not displayed."
-  (require 'bbdb)
   ;; This function runs in a special context where lisp symbols corresponding
   ;; to field names in record are bound to the corresponding values
   (eval
@@ -166,7 +166,6 @@ LOCATION is used as the address location for bbdb."
 PHONE is either a string supposedly containing a phone number or
 a list of such strings which are concatenated.
 LOCATION is used as the phone location for BBDB."
-  (require 'bbdb)
   (cond
    ((stringp phone)
     (let (phone-list)
@@ -189,7 +188,6 @@ LOCATION is used as the phone location for BBDB."
 (defun eudc-batch-export-records-to-bbdb ()
   "Insert all the records returned by a directory query into BBDB."
   (interactive)
-  (require 'bbdb)
   (goto-char (point-min))
   (let ((nbrec 0)
 	record)
@@ -205,7 +203,6 @@ LOCATION is used as the phone location for BBDB."
   "Insert record at point into the BBDB database.
 This function can only be called from a directory query result buffer."
   (interactive)
-  (require 'bbdb)
   (let ((record (and (overlays-at (point))
 		     (overlay-get (car (overlays-at (point))) 'eudc-record))))
     (if (null record)
@@ -216,8 +213,9 @@ This function can only be called from a directory query result buffer."
 (defun eudc-try-bbdb-insert ()
   "Call `eudc-insert-record-at-point-into-bbdb' if on a record."
   (interactive)
-  (require 'bbdb)
-  (and (overlays-at (point))
+  (and (or (featurep 'bbdb)
+	   (prog1 (locate-library "bbdb") (message "")))
+       (overlays-at (point))
        (overlay-get (car (overlays-at (point))) 'eudc-record)
        (eudc-insert-record-at-point-into-bbdb)))
 

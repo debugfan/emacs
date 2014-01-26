@@ -1,7 +1,7 @@
 /* sha256.c - Functions to compute SHA256 and SHA224 message digest of files or
    memory blocks according to the NIST specification FIPS-180-2.
 
-   Copyright (C) 2005-2006, 2008-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2006, 2008-2012 Free Software Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -22,9 +22,6 @@
 
 #include <config.h>
 
-#if HAVE_OPENSSL_SHA256
-# define GL_OPENSSL_INLINE _GL_EXTERN_INLINE
-#endif
 #include "sha256.h"
 
 #include <stdalign.h>
@@ -48,7 +45,6 @@
 # error "invalid BLOCKSIZE"
 #endif
 
-#if ! HAVE_OPENSSL_SHA256
 /* This array contains the bytes used to pad the buffer to the next
    64-byte boundary.  */
 static const unsigned char fillbuf[64] = { 0x80, 0 /* , 0, 0, ...  */ };
@@ -94,7 +90,7 @@ sha224_init_ctx (struct sha256_ctx *ctx)
 /* Copy the value from v into the memory location pointed to by *cp,
    If your architecture allows unaligned access this is equivalent to
    * (uint32_t *) cp = v  */
-static void
+static inline void
 set_uint32 (char *cp, uint32_t v)
 {
   memcpy (cp, &v, sizeof v);
@@ -167,7 +163,6 @@ sha224_finish_ctx (struct sha256_ctx *ctx, void *resbuf)
   sha256_conclude_ctx (ctx);
   return sha224_read_ctx (ctx, resbuf);
 }
-#endif
 
 /* Compute SHA256 message digest for bytes read from STREAM.  The
    resulting message digest number will be written into the 32 bytes
@@ -313,7 +308,6 @@ sha224_stream (FILE *stream, void *resblock)
   return 0;
 }
 
-#if ! HAVE_OPENSSL_SHA256
 /* Compute SHA512 message digest for LEN bytes beginning at BUFFER.  The
    result is always in little endian byte order, so that a byte-wise
    output yields to the wanted ASCII representation of the message
@@ -573,4 +567,3 @@ sha256_process_block (const void *buffer, size_t len, struct sha256_ctx *ctx)
       h = ctx->state[7] += h;
     }
 }
-#endif

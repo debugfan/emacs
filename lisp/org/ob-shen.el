@@ -1,6 +1,6 @@
 ;;; ob-shen.el --- org-babel functions for Shen
 
-;; Copyright (C) 2010-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2013 Free Software Foundation, Inc.
 
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research, shen
@@ -36,7 +36,6 @@
 (require 'ob)
 
 (declare-function shen-eval-defun "ext:inf-shen" (&optional and-go))
-(declare-function org-babel-ruby-var-to-ruby "ob-ruby" (var))
 
 (defvar org-babel-default-header-args:shen '()
   "Default header arguments for shen code blocks.")
@@ -66,14 +65,15 @@ This function is called by `org-babel-execute-src-block'"
   (let* ((result-type (cdr (assoc :result-type params)))
 	 (result-params (cdr (assoc :result-params params)))
          (full-body (org-babel-expand-body:shen body params)))
-    (let ((results
-           (with-temp-buffer
-             (insert full-body)
-             (call-interactively #'shen-eval-defun))))
-      (org-babel-result-cond result-params 
-        results
-        (condition-case nil (org-babel-script-escape results)
-          (error results))))))
+    ((lambda (results)
+       (if (or (member 'scalar result-params)
+	       (member 'verbatim result-params))
+	   results
+	 (condition-case nil (org-babel-script-escape results)
+	   (error results))))
+     (with-temp-buffer
+       (insert full-body)
+       (call-interactively #'shen-eval-defun)))))
 
 (provide 'ob-shen)
 ;;; ob-shen.el ends here

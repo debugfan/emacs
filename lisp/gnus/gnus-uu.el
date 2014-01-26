@@ -1,6 +1,6 @@
 ;;; gnus-uu.el --- extract (uu)encoded files in Gnus
 
-;; Copyright (C) 1985-1987, 1993-1998, 2000-2014 Free Software
+;; Copyright (C) 1985-1987, 1993-1998, 2000-2013 Free Software
 ;; Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
@@ -406,7 +406,6 @@ didn't work, and overwrite existing files.  Otherwise, ask each time."
 	  (read-directory-name "Unbinhex and save in dir: "
 			  gnus-uu-default-dir
 			  gnus-uu-default-dir))))
-  (gnus-uu-initialize)
   (setq gnus-uu-binhex-article-name
 	(mm-make-temp-file (expand-file-name "binhex" gnus-uu-work-dir)))
   (gnus-uu-decode-with-method 'gnus-uu-binhex-article n dir))
@@ -472,7 +471,6 @@ didn't work, and overwrite existing files.  Otherwise, ask each time."
    (list current-prefix-arg
 	 (read-file-name "Unbinhex, view and save in dir: "
 			 gnus-uu-default-dir gnus-uu-default-dir)))
-  (gnus-uu-initialize)
   (setq gnus-uu-binhex-article-name
 	(mm-make-temp-file (expand-file-name "binhex" gnus-uu-work-dir)))
   (let ((gnus-view-pseudos (or gnus-view-pseudos 'automatic)))
@@ -484,9 +482,8 @@ didn't work, and overwrite existing files.  Otherwise, ask each time."
 (defun gnus-uu-digest-mail-forward (&optional n post)
   "Digests and forwards all articles in this series."
   (interactive "P")
-  (gnus-uu-initialize)
   (let ((gnus-uu-save-in-digest t)
-	(file (mm-make-temp-file (nnheader-concat gnus-uu-work-dir "forward")))
+	(file (mm-make-temp-file (nnheader-concat gnus-uu-tmp-dir "forward")))
 	(message-forward-as-mime message-forward-as-mime)
 	(mail-parse-charset gnus-newsgroup-charset)
 	(mail-parse-ignored-charsets gnus-newsgroup-ignored-charsets)
@@ -643,7 +640,7 @@ When called interactively, prompt for REGEXP."
     (let ((level (gnus-summary-thread-level)))
       (while (and (gnus-summary-set-process-mark
 		   (gnus-summary-article-number))
-		  (zerop (forward-line 1))
+		  (zerop (gnus-summary-next-subject 1 nil t))
 		  (> (gnus-summary-thread-level) level)))))
   (gnus-summary-position-point))
 
@@ -653,7 +650,7 @@ When called interactively, prompt for REGEXP."
   (let ((level (gnus-summary-thread-level)))
     (while (and (gnus-summary-remove-process-mark
 		 (gnus-summary-article-number))
-		(zerop (forward-line 1))
+		(zerop (gnus-summary-next-subject 1))
 		(> (gnus-summary-thread-level) level))))
   (gnus-summary-position-point))
 
@@ -1839,8 +1836,8 @@ Gnus might fail to display all of it.")
 
 ;; Initializing
 
-(add-hook 'gnus-summary-prepare-exit-hook 'gnus-uu-clean-up)
-(add-hook 'gnus-summary-prepare-exit-hook 'gnus-uu-delete-work-dir)
+(add-hook 'gnus-exit-group-hook 'gnus-uu-clean-up)
+(add-hook 'gnus-exit-group-hook	'gnus-uu-delete-work-dir)
 
 
 

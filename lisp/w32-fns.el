@@ -1,6 +1,6 @@
 ;;; w32-fns.el --- Lisp routines for 32-bit Windows
 
-;; Copyright (C) 1994, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1994, 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: Geoff Voelker <voelker@cs.washington.edu>
 ;; Keywords: internal
@@ -249,8 +249,6 @@ This function is provided for backward compatibility, since
 
 ;; Set to a system sound if you want a fancy bell.
 (set-message-beep nil)
-
-(defvar w32-charset-info-alist)         ; w32font.c
 
 (defun w32-add-charset-info (xlfd-charset windows-charset codepage)
   "Function to add character sets to display with Windows fonts.

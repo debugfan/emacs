@@ -1,6 +1,6 @@
 /* Convert double to timespec.
 
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2013 Free Software Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -29,31 +29,41 @@
 struct timespec
 dtotimespec (double sec)
 {
+  enum { BILLION = 1000 * 1000 * 1000 };
   double min_representable = TYPE_MINIMUM (time_t);
   double max_representable =
-    ((TYPE_MAXIMUM (time_t) * (double) TIMESPEC_RESOLUTION
-      + (TIMESPEC_RESOLUTION - 1))
-     / TIMESPEC_RESOLUTION);
+    ((TYPE_MAXIMUM (time_t) * (double) BILLION + (BILLION - 1))
+     / BILLION);
+  struct timespec r;
 
   if (! (min_representable < sec))
-    return make_timespec (TYPE_MINIMUM (time_t), 0);
+    {
+      r.tv_sec = TYPE_MINIMUM (time_t);
+      r.tv_nsec = 0;
+    }
   else if (! (sec < max_representable))
-    return make_timespec (TYPE_MAXIMUM (time_t), TIMESPEC_RESOLUTION - 1);
+    {
+      r.tv_sec = TYPE_MAXIMUM (time_t);
+      r.tv_nsec = BILLION - 1;
+    }
   else
     {
       time_t s = sec;
-      double frac = TIMESPEC_RESOLUTION * (sec - s);
+      double frac = BILLION * (sec - s);
       long ns = frac;
       ns += ns < frac;
-      s += ns / TIMESPEC_RESOLUTION;
-      ns %= TIMESPEC_RESOLUTION;
+      s += ns / BILLION;
+      ns %= BILLION;
 
       if (ns < 0)
         {
           s--;
-          ns += TIMESPEC_RESOLUTION;
+          ns += BILLION;
         }
 
-      return make_timespec (s, ns);
+      r.tv_sec = s;
+      r.tv_nsec = ns;
     }
+
+  return r;
 }

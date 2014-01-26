@@ -1,6 +1,6 @@
 ;;; tramp-cache.el --- file information caching for Tramp
 
-;; Copyright (C) 2000, 2005-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2000, 2005-2013 Free Software Foundation, Inc.
 
 ;; Author: Daniel Pittman <daniel@inanna.danann.net>
 ;;         Michael Albinus <michael.albinus@gmx.de>
@@ -38,11 +38,9 @@
 ;;
 ;; - localname is a string.  This are temporary properties, which are
 ;;   related to the file localname is referring to.  Examples:
-;;   "file-exists-p" is t or nil, depending on the file existence, or
+;;   "file-exists-p" is t or nile, depending on the file existence, or
 ;;   "file-attributes" caches the result of the function
-;;   `file-attributes'.  These entries have a timestamp, and they
-;;   expire after `remote-file-name-inhibit-cache' seconds if this
-;;   variable is set.
+;;  `file-attributes'.
 ;;
 ;; - The key is a process.  This are temporary properties related to
 ;;   an open connection.  Examples: "scripts" keeps shell script
@@ -59,19 +57,6 @@
 ;;;###tramp-autoload
 (defvar tramp-cache-data (make-hash-table :test 'equal)
   "Hash table for remote files properties.")
-
-;;;###tramp-autoload
-(defcustom tramp-connection-properties nil
-  "List of static connection properties.
-Every entry has the form (REGEXP PROPERTY VALUE).  The regexp
-matches remote file names.  It can be nil.  PROPERTY is a string,
-and VALUE the corresponding value.  They are used, if there is no
-matching entry for PROPERTY in `tramp-cache-data'."
-  :group 'tramp
-  :version "24.4"
-  :type '(repeat (list (choice :tag "File Name regexp" regexp (const nil))
-		       (choice :tag "        Property" string)
-		       (choice :tag "           Value" sexp))))
 
 (defcustom tramp-persistency-file-name
   (cond
@@ -100,30 +85,16 @@ matching entry for PROPERTY in `tramp-cache-data'."
 (defvar tramp-cache-data-changed nil
   "Whether persistent cache data have been changed.")
 
-(defun tramp-get-hash-table (key)
-  "Returns the hash table for KEY.
-If it doesn't exist yet, it is created and initialized with
-matching entries of `tramp-connection-properties'."
-  (or (gethash key tramp-cache-data)
-      (let ((hash
-	     (puthash key (make-hash-table :test 'equal) tramp-cache-data)))
-	(when (vectorp key)
-	  (dolist (elt tramp-connection-properties)
-	    (when (string-match
-		   (or (nth 0 elt) "")
-		   (tramp-make-tramp-file-name
-		    (aref key 0) (aref key 1) (aref key 2) nil))
-	      (tramp-set-connection-property key (nth 1 elt) (nth 2 elt)))))
-	hash)))
-
 ;;;###tramp-autoload
-(defun tramp-get-file-property (key file property default)
-  "Get the PROPERTY of FILE from the cache context of KEY.
+(defun tramp-get-file-property (vec file property default)
+  "Get the PROPERTY of FILE from the cache context of VEC.
 Returns DEFAULT if not set."
   ;; Unify localname.
-  (setq key (copy-sequence key))
-  (aset key 3 (tramp-run-real-handler 'directory-file-name (list file)))
-  (let* ((hash (tramp-get-hash-table key))
+  (setq vec (copy-sequence vec))
+  (aset vec 3 (tramp-run-real-handler 'directory-file-name (list file)))
+  (let* ((hash (or (gethash vec tramp-cache-data)
+		   (puthash vec (make-hash-table :test 'equal)
+			    tramp-cache-data)))
 	 (value (when (hash-table-p hash) (gethash property hash))))
     (if
 	;; We take the value only if there is any, and
@@ -141,7 +112,7 @@ Returns DEFAULT if not set."
 	(setq value (cdr value))
       (setq value default))
 
-    (tramp-message key 8 "%s %s %s" file property value)
+    (tramp-message vec 8 "%s %s %s" file property value)
     (when (>= tramp-verbose 10)
       (let* ((var (intern (concat "tramp-cache-get-count-" property)))
 	     (val (or (ignore-errors (symbol-value var)) 0)))
@@ -149,16 +120,18 @@ Returns DEFAULT if not set."
     value))
 
 ;;;###tramp-autoload
-(defun tramp-set-file-property (key file property value)
-  "Set the PROPERTY of FILE to VALUE, in the cache context of KEY.
+(defun tramp-set-file-property (vec file property value)
+  "Set the PROPERTY of FILE to VALUE, in the cache context of VEC.
 Returns VALUE."
   ;; Unify localname.
-  (setq key (copy-sequence key))
-  (aset key 3 (tramp-run-real-handler 'directory-file-name (list file)))
-  (let ((hash (tramp-get-hash-table key)))
+  (setq vec (copy-sequence vec))
+  (aset vec 3 (tramp-run-real-handler 'directory-file-name (list file)))
+  (let ((hash (or (gethash vec tramp-cache-data)
+		  (puthash vec (make-hash-table :test 'equal)
+			   tramp-cache-data))))
     ;; We put the timestamp there.
     (puthash property (cons (current-time) value) hash)
-    (tramp-message key 8 "%s %s %s" file property value)
+    (tramp-message vec 8 "%s %s %s" file property value)
     (when (>= tramp-verbose 10)
       (let* ((var (intern (concat "tramp-cache-set-count-" property)))
 	     (val (or (ignore-errors (symbol-value var)) 0)))
@@ -166,28 +139,28 @@ Returns VALUE."
     value))
 
 ;;;###tramp-autoload
-(defun tramp-flush-file-property (key file)
-  "Remove all properties of FILE in the cache context of KEY."
+(defun tramp-flush-file-property (vec file)
+  "Remove all properties of FILE in the cache context of VEC."
   ;; Remove file property of symlinks.
-  (let ((truename (tramp-get-file-property key file "file-truename" nil)))
+  (let ((truename (tramp-get-file-property vec file "file-truename" nil)))
     (when (and (stringp truename)
 	       (not (string-equal file truename)))
-      (tramp-flush-file-property key truename)))
+      (tramp-flush-file-property vec truename)))
   ;; Unify localname.
-  (setq key (copy-sequence key))
-  (aset key 3 (tramp-run-real-handler 'directory-file-name (list file)))
-  (tramp-message key 8 "%s" file)
-  (remhash key tramp-cache-data))
+  (setq vec (copy-sequence vec))
+  (aset vec 3 (tramp-run-real-handler 'directory-file-name (list file)))
+  (tramp-message vec 8 "%s" file)
+  (remhash vec tramp-cache-data))
 
 ;;;###tramp-autoload
-(defun tramp-flush-directory-property (key directory)
-  "Remove all properties of DIRECTORY in the cache context of KEY.
+(defun tramp-flush-directory-property (vec directory)
+  "Remove all properties of DIRECTORY in the cache context of VEC.
 Remove also properties of all files in subdirectories."
   (let ((directory (tramp-run-real-handler
 		    'directory-file-name (list directory))))
-    (tramp-message key 8 "%s" directory)
+  (tramp-message vec 8 "%s" directory)
     (maphash
-     (lambda (key _value)
+     (lambda (key value)
        (when (and (stringp (tramp-file-name-localname key))
 		  (string-match directory (tramp-file-name-localname key)))
 	 (remhash key tramp-cache-data)))
@@ -230,7 +203,7 @@ If the value is not set for the connection, returns DEFAULT."
   (when (vectorp key)
     (setq key (copy-sequence key))
     (aset key 3 nil))
-  (let* ((hash (tramp-get-hash-table key))
+  (let* ((hash (gethash key tramp-cache-data))
 	 (value (if (hash-table-p hash)
 		    (gethash property hash default)
 		  default)))
@@ -247,17 +220,13 @@ PROPERTY is set persistent when KEY is a vector."
   (when (vectorp key)
     (setq key (copy-sequence key))
     (aset key 3 nil))
-  (let ((hash (tramp-get-hash-table key)))
+  (let ((hash (or (gethash key tramp-cache-data)
+		  (puthash key (make-hash-table :test 'equal)
+			   tramp-cache-data))))
     (puthash property value hash)
     (setq tramp-cache-data-changed t)
     (tramp-message key 7 "%s %s" property value)
     value))
-
-;;;###tramp-autoload
-(defun tramp-connection-property-p (key property)
-  "Check whether named PROPERTY of a connection is defined.
-KEY identifies the connection, it is either a process or a vector."
-  (not (eq (tramp-get-connection-property key property 'undef) 'undef)))
 
 ;;;###tramp-autoload
 (defun tramp-flush-connection-property (key)
@@ -272,8 +241,10 @@ KEY identifies the connection, it is either a process or a vector."
    key 7 "%s %s" key
    (let ((hash (gethash key tramp-cache-data))
 	 properties)
-     (when (hash-table-p hash)
-       (maphash (lambda (x _y) (add-to-list 'properties x 'append)) hash))
+     (if (hash-table-p hash)
+	 (maphash
+	  (lambda (x y) (add-to-list 'properties x 'append))
+	  (gethash key tramp-cache-data)))
      properties))
   (setq tramp-cache-data-changed t)
   (remhash key tramp-cache-data))
@@ -285,21 +256,6 @@ KEY identifies the connection, it is either a process or a vector."
     (let (result)
       (maphash
        (lambda (key value)
-	 ;; Remove text properties from KEY and VALUE.
-	 ;; `substring-no-properties' does not exist in XEmacs.
-	 (when (functionp 'substring-no-properties)
-	   (when (vectorp key)
-	     (dotimes (i (length key))
-	       (when (stringp (aref key i))
-		 (aset key i
-		       (tramp-compat-funcall
-			'substring-no-properties (aref key i))))))
-	   (when (stringp key)
-	     (setq key (tramp-compat-funcall 'substring-no-properties key)))
-	   (when (stringp value)
-	     (setq value
-		   (tramp-compat-funcall 'substring-no-properties value))))
-	 ;; Dump.
 	 (let ((tmp (format
 		     "(%s %s)"
 		     (if (processp key)
@@ -319,7 +275,7 @@ KEY identifies the connection, it is either a process or a vector."
   "Return a list of all known connection vectors according to `tramp-cache'."
     (let (result)
       (maphash
-       (lambda (key _value)
+       (lambda (key value)
 	 (when (and (vectorp key) (null (aref key 3)))
 	   (add-to-list 'result key)))
        tramp-cache-data)
@@ -383,7 +339,7 @@ This function is added always in `tramp-get-completion-function'
 for all methods.  Resulting data are derived from connection history."
   (let (res)
     (maphash
-     (lambda (key _value)
+     (lambda (key value)
        (if (and (vectorp key)
 		(string-equal method (tramp-file-name-method key))
 		(not (tramp-file-name-localname key)))
@@ -405,16 +361,11 @@ for all methods.  Resulting data are derived from connection history."
       (with-temp-buffer
 	(insert-file-contents tramp-persistency-file-name)
 	(let ((list (read (current-buffer)))
-	      (tramp-verbose 0)
 	      element key item)
 	  (while (setq element (pop list))
 	    (setq key (pop element))
 	    (while (setq item (pop element))
-	      ;; We set only values which are not contained in
-	      ;; `tramp-connection-properties'.  The cache is
-	      ;; initialized properly by side effect.
-	      (unless (tramp-connection-property-p key (car item))
-		(tramp-set-connection-property key (pop item) (car item))))))
+	      (tramp-set-connection-property key (pop item) (car item)))))
 	(setq tramp-cache-data-changed nil))
     (file-error
      ;; Most likely because the file doesn't exist yet.  No message.

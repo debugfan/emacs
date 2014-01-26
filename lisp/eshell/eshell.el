@@ -1,6 +1,6 @@
-;;; eshell.el --- the Emacs command shell  -*- lexical-binding:t -*-
+;;; eshell.el --- the Emacs command shell
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 ;; Version: 2.4.2
@@ -222,7 +222,8 @@
 ;; things up.
 
 (eval-when-compile
-  (require 'cl-lib))
+  (require 'cl-lib)
+  (require 'esh-util))
 (require 'esh-util)
 (require 'esh-mode)
 
@@ -300,7 +301,7 @@ buffer selected (or created)."
 		    (get-buffer-create eshell-buffer-name)))))
     (cl-assert (and buf (buffer-live-p buf)))
     (pop-to-buffer-same-window buf)
-    (unless (derived-mode-p 'eshell-mode)
+    (unless (eq major-mode 'eshell-mode)
       (eshell-mode))
     buf))
 
@@ -317,8 +318,6 @@ buffer selected (or created)."
 Modules should use this variable so that they don't clutter
 non-interactive sessions, such as when using `eshell-command'.")
 
-(declare-function eshell-add-input-to-history "em-hist" (input))
-
 ;;;###autoload
 (defun eshell-command (&optional command arg)
   "Execute the Eshell command string COMMAND.
@@ -334,8 +333,7 @@ With prefix ARG, insert output into the current buffer at point."
                                     (eshell-return-exits-minibuffer))
       (unless command
         (setq command (read-from-minibuffer "Emacs shell command: "))
-	(if (eshell-using-module 'eshell-hist)
-	    (eshell-add-input-to-history command)))))
+        (eshell-add-input-to-history command))))
   (unless command
     (error "No command specified!"))
   ;; redirection into the current buffer is achieved by adding an

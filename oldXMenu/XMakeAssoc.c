@@ -3,6 +3,7 @@
 #include "copyright.h"
 
 
+#include <config.h>
 #include "XMenuInt.h"
 #include <X11/Xresource.h>
 #include <errno.h>

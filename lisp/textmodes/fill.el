@@ -1,6 +1,6 @@
 ;;; fill.el --- fill commands for Emacs		-*- coding: utf-8 -*-
 
-;; Copyright (C) 1985-1986, 1992, 1994-1997, 1999, 2001-2014 Free
+;; Copyright (C) 1985-1986, 1992, 1994-1997, 1999, 2001-2013 Free
 ;; Software Foundation, Inc.
 
 ;; Maintainer: FSF
@@ -220,7 +220,7 @@ Remove indentation from each line."
   (let ((str (or
               (and adaptive-fill-function (funcall adaptive-fill-function))
               (and adaptive-fill-regexp (looking-at adaptive-fill-regexp)
-                   (match-string 0)))))
+                   (match-string-no-properties 0)))))
     (if (>= (+ (current-left-margin) (length str)) (current-fill-column))
         ;; Death to insanely long prefixes.
         nil
@@ -329,24 +329,13 @@ places."
 	      (and (memq (preceding-char) '(?\t ?\s))
 		   (eq (char-syntax (following-char)) ?w)))))))
 
-(defun fill-single-char-nobreak-p ()
-  "Return t if point is placed just after a 1-letter word.
-This is used in `fill-nobreak-predicate' to prevent breaking line just
-after a 1-letter word (usually conjunction or preposition) which is
-considered composition error in Polish and Czech typography."
-  (save-excursion
-    (skip-chars-backward " \t")
-    (backward-char 2)
-    (looking-at "[[:space:]][[:alpha:]]")))
-
 (defcustom fill-nobreak-predicate nil
   "List of predicates for recognizing places not to break a line.
 The predicates are called with no arguments, with point at the place to
 be tested.  If it returns t, fill commands do not break the line there."
   :group 'fill
   :type 'hook
-  :options '(fill-french-nobreak-p fill-single-word-nobreak-p
-             fill-single-char-nobreak-p))
+  :options '(fill-french-nobreak-p fill-single-word-nobreak-p))
 
 (defcustom fill-nobreak-invisible nil
   "Non-nil means that fill commands do not break lines in invisible text."
@@ -732,11 +721,7 @@ space does not end a sentence, so don't break a line there."
 	    (move-to-column (current-fill-column))
 	    (if (when (< (point) to)
 		  ;; Find the position where we'll break the line.
-		  ;; Use an immediately following space, if any.
-		  ;; However, note that `move-to-column' may overshoot
-		  ;; if there are wide characters (Bug#3234).
-		  (unless (> (current-column) (current-fill-column))
-		    (forward-char 1))
+		  (forward-char 1) ;Use an immediately following space, if any.
 		  (fill-move-to-break-point linebeg)
 		  ;; Check again to see if we got to the end of
 		  ;; the paragraph.

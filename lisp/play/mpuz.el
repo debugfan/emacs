@@ -1,6 +1,6 @@
 ;;; mpuz.el --- multiplication puzzle for GNU Emacs
 
-;; Copyright (C) 1990, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1990, 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: Philippe Schnoebelen <phs@lsv.ens-cachan.fr>
 ;; Overhauled: Daniel Pfeiffer <occitan@esperanto.org>
@@ -94,9 +94,7 @@ The value t means never ding, and `error' means only ding on wrong input."
     map)
   "Local keymap to use in Mult Puzzle.")
 
-
-
-(define-derived-mode mpuz-mode fundamental-mode "Mult Puzzle"
+(defun mpuz-mode ()
   "Multiplication puzzle mode.
 
 You have to guess which letters stand for which digits in the
@@ -108,7 +106,13 @@ then the digit.  Thus, to guess that A=3, type `A 3'.
 To leave the game to do other editing work, just switch buffers.
 Then you may resume the game with M-x mpuz.
 You may abort a game by typing \\<mpuz-mode-map>\\[mpuz-offer-abort]."
-  (setq tab-width 30))
+  (interactive)
+  (kill-all-local-variables)
+  (setq major-mode 'mpuz-mode
+	mode-name  "Mult Puzzle"
+	tab-width 30)
+  (use-local-map mpuz-mode-map)
+  (run-mode-hooks 'mpuz-mode-hook))
 
 
 ;; Some variables for statistics

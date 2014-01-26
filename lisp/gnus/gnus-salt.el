@@ -1,6 +1,6 @@
 ;;; gnus-salt.el --- alternate summary mode interfaces for Gnus
 
-;; Copyright (C) 1996-1999, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1996-1999, 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: news
@@ -292,24 +292,21 @@ This must be bound to a button-down mouse event."
 		  (mouse-scroll-subr start-window
 				     (1+ (- mouse-row bottom)))))))))))
       (when (consp event)
-	(let (;; (fun (key-binding (vector (car event))))
-              )
+	(let ((fun (key-binding (vector (car event)))))
 	  ;; Run the binding of the terminating up-event, if possible.
-          ;; In the case of a multiple click, it gives the wrong results,
+       ;; In the case of a multiple click, it gives the wrong results,
 	  ;; because it would fail to set up a region.
 	  (when nil
-            ;; (and (= (mod mouse-selection-click-count 3) 0) (fboundp fun))
-            ;; In this case, we can just let the up-event execute normally.
+      ;; (and (= (mod mouse-selection-click-count 3) 0) (fboundp fun))
+       ;; In this case, we can just let the up-event execute normally.
 	    (let ((end (event-end event)))
 	      ;; Set the position in the event before we replay it,
 	      ;; because otherwise it may have a position in the wrong
 	      ;; buffer.
 	      (setcar (cdr end) end-of-range)
 	      ;; Delete the overlay before calling the function,
-              ;; because delete-overlay increases buffer-modified-tick.
+	     ;; because delete-overlay increases buffer-modified-tick.
 	      (push event unread-command-events))))))))
-
-(defvar scroll-in-place)
 
 (defun gnus-pick-next-page ()
   "Go to the next page.  If at the end of the buffer, start reading articles."
@@ -359,7 +356,7 @@ This must be bound to a button-down mouse event."
     (when (gnus-visual-p 'binary-menu 'menu)
       (gnus-binary-make-menu-bar)))))
 
-(defun gnus-binary-display-article (article &optional _all-header)
+(defun gnus-binary-display-article (article &optional all-header)
   "Run ARTICLE through the binary decode functions."
   (when (gnus-summary-goto-subject article)
     (let ((gnus-view-pseudos (or gnus-view-pseudos 'automatic)))
@@ -388,7 +385,7 @@ lines."
 		 integer)
   :group 'gnus-summary-tree)
 
-(defcustom gnus-selected-tree-face 'mode-line
+(defcustom gnus-selected-tree-face 'modeline
   "*Face used for highlighting selected articles in the thread tree."
   :type 'face
   :group 'gnus-summary-tree)
@@ -426,13 +423,6 @@ Two predefined functions are available:
 
 ;;; Internal variables.
 
-(defvar gnus-tmp-name)
-(defvar gnus-tmp-from)
-(defvar gnus-tmp-number)
-(defvar gnus-tmp-open-bracket)
-(defvar gnus-tmp-close-bracket)
-(defvar gnus-tmp-subject)
-
 (defvar gnus-tree-line-format-alist
   `((?n gnus-tmp-name ?s)
     (?f gnus-tmp-from ?s)
@@ -452,23 +442,23 @@ Two predefined functions are available:
 (defvar gnus-tree-displayed-thread nil)
 (defvar gnus-tree-inhibit nil)
 
-(defvar gnus-tree-mode-map
-  (let ((map (make-keymap)))
-    (suppress-keymap map)
-    (gnus-define-keys
-        map
-      "\r" gnus-tree-select-article
-      gnus-mouse-2 gnus-tree-pick-article
-      "\C-?" gnus-tree-read-summary-keys
-      "h" gnus-tree-show-summary
-
-      "\C-c\C-i" gnus-info-find-node)
-
-    (substitute-key-definition
-     'undefined 'gnus-tree-read-summary-keys map)
-    map))
-
+(defvar gnus-tree-mode-map nil)
 (put 'gnus-tree-mode 'mode-class 'special)
+
+(unless gnus-tree-mode-map
+  (setq gnus-tree-mode-map (make-keymap))
+  (suppress-keymap gnus-tree-mode-map)
+  (gnus-define-keys
+      gnus-tree-mode-map
+    "\r" gnus-tree-select-article
+    gnus-mouse-2 gnus-tree-pick-article
+    "\C-?" gnus-tree-read-summary-keys
+    "h" gnus-tree-show-summary
+
+    "\C-c\C-i" gnus-info-find-node)
+
+  (substitute-key-definition
+   'undefined 'gnus-tree-read-summary-keys gnus-tree-mode-map))
 
 (defun gnus-tree-make-menu-bar ()
   (unless (boundp 'gnus-tree-menu)
@@ -477,20 +467,26 @@ Two predefined functions are available:
       '("Tree"
 	["Select article" gnus-tree-select-article t]))))
 
-(define-derived-mode gnus-tree-mode fundamental-mode "Tree"
+(defun gnus-tree-mode ()
   "Major mode for displaying thread trees."
+  (interactive)
   (gnus-set-format 'tree-mode)
   (gnus-set-format 'tree t)
   (when (gnus-visual-p 'tree-menu 'menu)
     (gnus-tree-make-menu-bar))
+  (kill-all-local-variables)
   (gnus-simplify-mode-line)
+  (setq mode-name "Tree")
+  (setq major-mode 'gnus-tree-mode)
+  (use-local-map gnus-tree-mode-map)
   (buffer-disable-undo)
   (setq buffer-read-only t)
   (setq truncate-lines t)
-  (save-current-buffer
+  (save-excursion
     (gnus-set-work-buffer)
     (gnus-tree-node-insert (make-mail-header "") nil)
-    (setq gnus-tree-node-length (1- (point)))))
+    (setq gnus-tree-node-length (1- (point))))
+  (gnus-run-mode-hooks 'gnus-tree-mode-hook))
 
 (defun gnus-tree-read-summary-keys (&optional arg)
   "Read a summary buffer key sequence and execute it."
@@ -566,7 +562,7 @@ Two predefined functions are available:
 (defun gnus-get-tree-buffer ()
   "Return the tree buffer properly initialized."
   (with-current-buffer (gnus-get-buffer-create gnus-tree-buffer)
-    (unless (derived-mode-p 'gnus-tree-mode)
+    (unless (eq major-mode 'gnus-tree-mode)
       (gnus-tree-mode))
     (current-buffer)))
 
@@ -575,7 +571,7 @@ Two predefined functions are available:
 	     (not (one-window-p)))
     (let ((windows 0)
 	  tot-win-height)
-      (walk-windows (lambda (_window) (incf windows)))
+      (walk-windows (lambda (window) (incf windows)))
       (setq tot-win-height
 	    (- (frame-height)
 	       (* window-min-height (1- windows))
@@ -646,42 +642,24 @@ Two predefined functions are available:
     (when (or t (gnus-visual-p 'tree-highlight 'highlight))
       (gnus-tree-highlight-node gnus-tmp-number beg end))))
 
-(defmacro gnus--let-eval (bindings evalsym &rest body)
-  "Build an environment in which to evaluate expressions.
-BINDINGS is a `let'-style list of bindings to use for the environment.
-EVALSYM is then bound in BODY to a function that takes a sexp and evaluates
-it in the environment specified by BINDINGS."
-  (declare (indent 2) (debug ((&rest (sym form)) sym body)))
-  (if (ignore-errors (let ((x 3)) (eq (eval '(- x 1) '((x . 4))) x)))
-      ;; Use lexical vars if possible.
-      `(let* ((env (list ,@(mapcar (lambda (binding)
-                                     `(cons ',(car binding) ,(cadr binding)))
-                                   bindings)))
-             (,evalsym (lambda (exp) (eval exp env))))
-         ,@body)
-    `(let (,@bindings (,evalsym #'eval)) ,@body)))
-
 (defun gnus-tree-highlight-node (article beg end)
   "Highlight current line according to `gnus-summary-highlight'."
   (let ((list gnus-summary-highlight)
 	face)
     (with-current-buffer gnus-summary-buffer
-      (let ((uncached (memq article gnus-newsgroup-undownloaded)))
-        (gnus--let-eval
-            ((score (or (cdr (assq article gnus-newsgroup-scored))
+      (let* ((score (or (cdr (assq article gnus-newsgroup-scored))
 			gnus-summary-default-score 0))
 	     (default gnus-summary-default-score)
 	     (default-high gnus-summary-default-high-score)
 	     (default-low gnus-summary-default-low-score)
-             (uncached uncached)
+             (uncached (memq article gnus-newsgroup-undownloaded))
              (downloaded (not uncached))
 	     (mark (or (gnus-summary-article-mark article) gnus-unread-mark)))
-            evalfun
-          ;; Eval the cars of the lists until we find a match.
-          (while (and list
-                      (not (funcall evalfun (caar list))))
-            (setq list (cdr list))))))
-    (unless (eq (setq face (cdar list)) (gnus-get-text-property-excluding-characters-with-faces beg 'face))
+	;; Eval the cars of the lists until we find a match.
+	(while (and list
+		    (not (eval (caar list))))
+	  (setq list (cdr list)))))
+    (unless (eq (setq face (cdar list)) (get-text-property beg 'face))
       (gnus-put-text-property-excluding-characters-with-faces
        beg end 'face
        (if (boundp face) (symbol-value face) face)))))
@@ -836,10 +814,10 @@ it in the environment specified by BINDINGS."
 	  (gnus-generate-tree top)
 	  (setq gnus-tree-displayed-thread top))))))
 
-(defun gnus-tree-open ()
+(defun gnus-tree-open (group)
   (gnus-get-tree-buffer))
 
-(defun gnus-tree-close ()
+(defun gnus-tree-close (group)
   (gnus-kill-buffer gnus-tree-buffer))
 
 (defun gnus-tree-perhaps-minimize ()
@@ -850,33 +828,31 @@ it in the environment specified by BINDINGS."
 
 (defun gnus-highlight-selected-tree (article)
   "Highlight the selected article in the tree."
-  (when (buffer-live-p gnus-tree-buffer)
-    (let ((buf (current-buffer))
-	  region)
-      (set-buffer gnus-tree-buffer)
-      (when (setq region (gnus-tree-article-region article))
-	(when (or (not gnus-selected-tree-overlay)
-		  (gnus-extent-detached-p gnus-selected-tree-overlay))
-	  ;; Create a new overlay.
-	  (gnus-overlay-put
-	   (setq gnus-selected-tree-overlay
-		 (gnus-make-overlay (point-min) (1+ (point-min))))
-	   'face gnus-selected-tree-face))
-	;; Move the overlay to the article.
-	(gnus-move-overlay
-	 gnus-selected-tree-overlay (goto-char (car region)) (cdr region))
-	(gnus-tree-minimize)
-	(gnus-tree-recenter)
-	(let ((selected (selected-window)))
-	  (when (gnus-get-buffer-window (set-buffer gnus-tree-buffer) t)
-	    (select-window
-	     (gnus-get-buffer-window (set-buffer gnus-tree-buffer) t))
-	    (gnus-horizontal-recenter)
-	    (select-window selected))))
-      ;; If we remove this save-excursion, it updates the wrong mode lines?!?
-      (with-current-buffer gnus-tree-buffer
-	(gnus-set-mode-line 'tree))
-      (set-buffer buf))))
+  (let ((buf (current-buffer))
+	region)
+    (set-buffer gnus-tree-buffer)
+    (when (setq region (gnus-tree-article-region article))
+      (when (or (not gnus-selected-tree-overlay)
+		(gnus-extent-detached-p gnus-selected-tree-overlay))
+	;; Create a new overlay.
+	(gnus-overlay-put
+	 (setq gnus-selected-tree-overlay
+	       (gnus-make-overlay (point-min) (1+ (point-min))))
+	 'face gnus-selected-tree-face))
+      ;; Move the overlay to the article.
+      (gnus-move-overlay
+       gnus-selected-tree-overlay (goto-char (car region)) (cdr region))
+      (gnus-tree-minimize)
+      (gnus-tree-recenter)
+      (let ((selected (selected-window)))
+	(when (gnus-get-buffer-window (set-buffer gnus-tree-buffer) t)
+	  (select-window (gnus-get-buffer-window (set-buffer gnus-tree-buffer) t))
+	  (gnus-horizontal-recenter)
+	  (select-window selected))))
+;; If we remove this save-excursion, it updates the wrong mode lines?!?
+    (with-current-buffer gnus-tree-buffer
+      (gnus-set-mode-line 'tree))
+    (set-buffer buf)))
 
 (defun gnus-tree-highlight-article (article face)
   (with-current-buffer (gnus-get-tree-buffer)

@@ -1,6 +1,6 @@
-;;; esh-arg.el --- argument processing  -*- lexical-binding:t -*-
+;;; esh-arg.el --- argument processing
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -27,7 +27,7 @@
 
 (provide 'esh-arg)
 
-(require 'esh-mode)
+(eval-when-compile (require 'eshell))
 
 (defgroup eshell-arg nil
   "Argument parsing involves transforming the arguments passed on the
@@ -278,7 +278,7 @@ Point is left at the end of the arguments."
     (eshell-resolve-current-argument)
     eshell-current-argument))
 
-(defsubst eshell-operator (&rest _args)
+(defsubst eshell-operator (&rest args)
   "A stub function that generates an error if a floating operator is found."
   (error "Unhandled operator in input text"))
 

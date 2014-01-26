@@ -1,6 +1,6 @@
 ;;; spook.el --- spook phrase utility for overloading the NSA line eater
 
-;; Copyright (C) 1988, 1993, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1988, 1993, 2001-2013 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: games
@@ -68,6 +68,10 @@
   (cookie-snarf spook-phrases-file
 		"Checking authorization..."
 		"Checking authorization...Approved"))
+
+;; Note: the implementation that used to take up most of this file has been
+;; cleaned up, generalized, gratuitously broken by esr, and now resides in
+;; cookie1.el.
 
 (provide 'spook)
 

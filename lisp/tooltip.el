@@ -1,6 +1,6 @@
 ;;; tooltip.el --- show tooltip windows
 
-;; Copyright (C) 1997, 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: Gerd Moellmann <gerd@acm.org>
 ;; Keywords: help c mouse tools
@@ -58,7 +58,9 @@ echo area, instead of making a pop-up window."
   :init-value t
   :initialize 'custom-initialize-delay
   :group 'tooltip
-  (if (and tooltip-mode (fboundp 'x-show-tip))
+  (unless (or (null tooltip-mode) (fboundp 'x-show-tip))
+    (error "Sorry, tooltips are not yet available on this system"))
+  (if tooltip-mode
       (progn
 	(add-hook 'pre-command-hook 'tooltip-hide)
 	(add-hook 'tooltip-functions 'tooltip-help-tips))
@@ -149,7 +151,7 @@ This variable is obsolete; instead of setting it to t, disable
   :group 'tooltip)
 
 (make-obsolete-variable 'tooltip-use-echo-area
-			"disable Tooltip mode instead" "24.1" 'set)
+			"disable Tooltip mode instead" "24.1")
 
 
 ;;; Variables that are not customizable.

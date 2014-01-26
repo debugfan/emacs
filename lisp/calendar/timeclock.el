@@ -1,6 +1,6 @@
 ;;; timeclock.el --- mode for keeping track of how much you work
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 ;; Created: 25 Mar 1999
@@ -81,7 +81,7 @@
 
 ;;; User Variables:
 
-(defcustom timeclock-file (locate-user-emacs-file "timelog" ".timelog")
+(defcustom timeclock-file (convert-standard-filename "~/.timelog")
   "The file used to store timeclock data in."
   :type 'file
   :group 'timeclock)
@@ -136,7 +136,7 @@ This variable only has effect if set with \\[customize]."
 	 (if value
 	     (add-hook 'kill-emacs-query-functions 'timeclock-query-out)
 	   (remove-hook 'kill-emacs-query-functions 'timeclock-query-out))
-	 (set symbol value))
+	 (setq timeclock-ask-before-exiting value))
   :type 'boolean
   :group 'timeclock)
 
@@ -174,12 +174,11 @@ a positive argument to force an update."
 			     timeclock-update-timer)))
 	       (setq currently-displaying nil))
 	   (and currently-displaying
-		(setq timeclock-mode-line-display nil))
-	   (set symbol value)
+		(set-variable 'timeclock-mode-line-display nil))
+	   (setq timeclock-use-display-time value)
 	   (and currently-displaying
-		(setq timeclock-mode-line-display t))
-           ;; FIXME: The return value isn't used, AFAIK!
-	   value))
+		(set-variable 'timeclock-mode-line-display t))
+	   timeclock-use-display-time))
   :type 'boolean
   :group 'timeclock
   :require 'time)
@@ -270,11 +269,9 @@ The time is bracketed by <> if you are clocked in, otherwise by [].")
 
 (define-obsolete-function-alias 'timeclock-modeline-display
   'timeclock-mode-line-display "24.3")
-(define-obsolete-variable-alias 'timeclock-modeline-display
-  'timeclock-mode-line-display "24.3")
 
 ;;;###autoload
-(define-minor-mode timeclock-mode-line-display
+(defun timeclock-mode-line-display (&optional arg)
   "Toggle display of the amount of time left today in the mode line.
 If `timeclock-use-display-time' is non-nil (the default), then
 the function `display-time-mode' must be active, and the mode line
@@ -283,41 +280,61 @@ the timeclock will use its own sixty second timer to do its
 updating.  With prefix ARG, turn mode line display on if and only
 if ARG is positive.  Returns the new status of timeclock mode line
 display (non-nil means on)."
-  :global t
+  (interactive "P")
   ;; cf display-time-mode.
   (setq timeclock-mode-string "")
   (or global-mode-string (setq global-mode-string '("")))
-  (if timeclock-mode-line-display
-      (progn
-        (or (memq 'timeclock-mode-string global-mode-string)
-            (setq global-mode-string
-                  (append global-mode-string '(timeclock-mode-string))))
-        (add-hook 'timeclock-event-hook 'timeclock-update-mode-line)
-        (when timeclock-update-timer
-          (cancel-timer timeclock-update-timer)
-          (setq timeclock-update-timer nil))
-        (if (boundp 'display-time-hook)
-            (remove-hook 'display-time-hook 'timeclock-update-mode-line))
-        (if timeclock-use-display-time
-            (progn
-              ;; Update immediately so there is a visible change
-              ;; on calling this function.
-              (if display-time-mode
-                  (timeclock-update-mode-line)
-                (message "Activate `display-time-mode' or turn off \
+  (let ((on-p (if arg
+		  (> (prefix-numeric-value arg) 0)
+		(not timeclock-mode-line-display))))
+    (if on-p
+        (progn
+          (or (memq 'timeclock-mode-string global-mode-string)
+              (setq global-mode-string
+                    (append global-mode-string '(timeclock-mode-string))))
+	  (add-hook 'timeclock-event-hook 'timeclock-update-mode-line)
+	  (when timeclock-update-timer
+	    (cancel-timer timeclock-update-timer)
+	    (setq timeclock-update-timer nil))
+	  (if (boundp 'display-time-hook)
+	      (remove-hook 'display-time-hook 'timeclock-update-mode-line))
+	  (if timeclock-use-display-time
+              (progn
+                ;; Update immediately so there is a visible change
+                ;; on calling this function.
+                (if display-time-mode
+		    (timeclock-update-mode-line)
+                  (message "Activate `display-time-mode' or turn off \
 `timeclock-use-display-time' to see timeclock information"))
-              (add-hook 'display-time-hook 'timeclock-update-mode-line))
-          (setq timeclock-update-timer
-                (run-at-time nil 60 'timeclock-update-mode-line))))
-    (setq global-mode-string
-          (delq 'timeclock-mode-string global-mode-string))
-    (remove-hook 'timeclock-event-hook 'timeclock-update-mode-line)
-    (if (boundp 'display-time-hook)
-        (remove-hook 'display-time-hook
-                     'timeclock-update-mode-line))
-    (when timeclock-update-timer
-      (cancel-timer timeclock-update-timer)
-      (setq timeclock-update-timer nil))))
+                (add-hook 'display-time-hook 'timeclock-update-mode-line))
+	    (setq timeclock-update-timer
+		  (run-at-time nil 60 'timeclock-update-mode-line))))
+      (setq global-mode-string
+	    (delq 'timeclock-mode-string global-mode-string))
+      (remove-hook 'timeclock-event-hook 'timeclock-update-mode-line)
+      (if (boundp 'display-time-hook)
+	  (remove-hook 'display-time-hook
+		       'timeclock-update-mode-line))
+      (when timeclock-update-timer
+	(cancel-timer timeclock-update-timer)
+	(setq timeclock-update-timer nil)))
+    (force-mode-line-update)
+    (setq timeclock-mode-line-display on-p)))
+
+(define-obsolete-variable-alias 'timeclock-modeline-display
+  'timeclock-mode-line-display "24.3")
+
+;; This has to be here so that the function definition of
+;; `timeclock-mode-line-display' is known to the "set" function.
+(defcustom timeclock-mode-line-display nil
+  "Toggle mode line display of time remaining.
+You must modify via \\[customize] for this variable to have an effect."
+  :set (lambda (symbol value)
+	 (setq timeclock-mode-line-display
+	       (timeclock-mode-line-display (or value 0))))
+  :type 'boolean
+  :group 'timeclock
+  :require 'timeclock)
 
 (defsubst timeclock-time-to-date (time)
   "Convert the TIME value to a textual date string."
@@ -818,24 +835,25 @@ This is only provided for coherency when used by
   "Return a list of all the projects in DAY."
   (timeclock-entry-list-projects (cddr day)))
 
-(defun timeclock-day-list-template (func day-list)
+(defmacro timeclock-day-list-template (func)
   "Template for summing the result of FUNC on each element of DAY-LIST."
-  (let ((length 0))
-    (dolist (day day-list)
-      (setq length (+ length (funcall func day))))
-    length))
+  `(let ((length 0))
+     (while day-list
+       (setq length (+ length (,(eval func) (car day-list)))
+	     day-list (cdr day-list)))
+     length))
 
 (defun timeclock-day-list-required (day-list)
   "Return total required length of DAY-LIST, in seconds."
-  (timeclock-day-list-template #'timeclock-day-required day-list))
+  (timeclock-day-list-template 'timeclock-day-required))
 
 (defun timeclock-day-list-length (day-list)
   "Return actual length of DAY-LIST, in seconds."
-  (timeclock-day-list-template #'timeclock-day-length day-list))
+  (timeclock-day-list-template 'timeclock-day-length))
 
 (defun timeclock-day-list-debt (day-list)
   "Return total debt (required - actual) of DAY-LIST."
-  (timeclock-day-list-template #'timeclock-day-debt day-list))
+  (timeclock-day-list-template 'timeclock-day-debt))
 
 (defsubst timeclock-day-list-begin (day-list)
   "Return the start time of DAY-LIST."
@@ -847,11 +865,11 @@ This is only provided for coherency when used by
 
 (defun timeclock-day-list-span (day-list)
   "Return the span of DAY-LIST."
-  (timeclock-day-list-template #'timeclock-day-span day-list))
+  (timeclock-day-list-template 'timeclock-day-span))
 
 (defun timeclock-day-list-break (day-list)
   "Return the total break of DAY-LIST."
-  (timeclock-day-list-template #'timeclock-day-break day-list))
+  (timeclock-day-list-template 'timeclock-day-break))
 
 (defun timeclock-day-list-projects (day-list)
   "Return a list of all the projects in DAY-LIST."

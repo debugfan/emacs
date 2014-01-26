@@ -1,6 +1,6 @@
 ;; erc-ring.el -- Command history handling for erc using ring.el
 
-;; Copyright (C) 2001-2004, 2006-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2001-2004, 2006-2013 Free Software Foundation, Inc.
 
 ;; Author: Alex Schroeder <alex@gnu.org>
 ;; Maintainer: FSF
@@ -37,10 +37,6 @@
 (require 'erc)
 (require 'comint)
 (require 'ring)
-
-(defgroup erc-ring nil
-  "An input ring for ERC."
-  :group 'erc)
 
 ;;;###autoload (autoload 'erc-ring-mode "erc-ring" nil t)
 (define-erc-module ring nil

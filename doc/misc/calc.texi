@@ -4,7 +4,6 @@
 @setfilename ../../info/calc
 @c [title]
 @settitle GNU Emacs Calc Manual
-@documentencoding UTF-8
 @setchapternewpage odd
 @comment %**end of header (This is for running Texinfo on a region.)
 
@@ -95,7 +94,7 @@ This file documents Calc, the GNU Emacs calculator, included with
 GNU Emacs @value{EMACSVER}.
 @end ifnotinfo
 
-Copyright @copyright{} 1990--1991, 2001--2014 Free Software Foundation, Inc.
+Copyright @copyright{} 1990--1991, 2001--2013 Free Software Foundation, Inc.
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document
@@ -141,7 +140,7 @@ modify this GNU manual.''
 @c [begin]
 @ifnottex
 @node Top, Getting Started, (dir), (dir)
-@top The GNU Emacs Calculator
+@chapter The GNU Emacs Calculator
 
 @noindent
 @dfn{Calc} is an advanced desk calculator and mathematical tool
@@ -4461,7 +4460,7 @@ date by one or several months.  @xref{Date Arithmetic}, for more.
 Friday the 13th?  @xref{Types Answer 5, 5}. (@bullet{})
 
 (@bullet{}) @strong{Exercise 6.}  How many leap years will there be
-between now and the year 10001 AD@?  @xref{Types Answer 6, 6}. (@bullet{})
+between now and the year 10001 A.D.?  @xref{Types Answer 6, 6}. (@bullet{})
 
 @cindex Slope and angle of a line
 @cindex Angle and slope of a line
@@ -8897,7 +8896,7 @@ Note that this rule does not mention @samp{O} at all, so it will
 apply to any product-of-sum it encounters---this rule may surprise
 you if you put it into @code{EvalRules}!
 
-In the second rule, the sum of two O's is changed to the smaller O@.
+In the second rule, the sum of two O's is changed to the smaller O.
 The optional constant coefficients are there mostly so that
 @samp{O(x^2) - O(x^3)} and @samp{O(x^3) - O(x^2)} are handled
 as well as @samp{O(x^2) + O(x^3)}.
@@ -9910,9 +9909,9 @@ listed.
 
 @kindex h n
 The @kbd{h n} or @kbd{h C-n} (@code{calc-view-news}) command displays
-the ``news'' or change history of Emacs, and jumps to the most recent
-portion concerning Calc (if present).  For older history, see the file
-@file{etc/CALC-NEWS} in the Emacs distribution.
+the ``news'' or change history of Calc.  This is kept in the file
+@file{README}, which Calc looks for in the same directory as the Calc
+source files.
 
 @kindex h C-c
 @kindex h C-d
@@ -10987,10 +10986,10 @@ Input is flexible; date forms can be entered in any of the usual
 notations for dates and times.  @xref{Date Formats}.
 
 Date forms are stored internally as numbers, specifically the number
-of days since midnight on the morning of December 31 of the year 1 BC@.
+of days since midnight on the morning of January 1 of the year 1 AD.
 If the internal number is an integer, the form represents a date only;
 if the internal number is a fraction or float, the form represents
-a date and time.  For example, @samp{<6:00am Thu Jan 10, 1991>}
+a date and time.  For example, @samp{<6:00am Wed Jan 9, 1991>}
 is represented by the number 726842.25.  The standard precision of
 12 decimal digits is enough to ensure that a (reasonable) date and
 time can be stored without roundoff error.
@@ -11010,70 +11009,58 @@ You can use the @kbd{v p} (@code{calc-pack}) and @kbd{v u}
 of a date form.  @xref{Packing and Unpacking}.
 
 Date forms can go arbitrarily far into the future or past.  Negative
-year numbers represent years BC@.  There is no ``year 0''; the day
-before @samp{<Mon Jan 1, +1>} is @samp{<Sun Dec 31, -1>}.  These are
-days 1 and 0 respectively in Calc's internal numbering scheme.  The
-Gregorian calendar is used for all dates, including dates before the
-Gregorian calendar was invented (although that can be configured; see
-below).  Thus Calc's use of the day number @mathit{-10000} to
-represent August 15, 28 BC should be taken with a grain of salt.
+year numbers represent years BC@.  Calc uses a combination of the
+Gregorian and Julian calendars, following the history of Great
+Britain and the British colonies.  This is the same calendar that
+is used by the @code{cal} program in most Unix implementations.
 
 @cindex Julian calendar
 @cindex Gregorian calendar
 Some historical background:  The Julian calendar was created by
-Julius Caesar in the year 46 BC as an attempt to fix the confusion
-caused by the irregular Roman calendar that was used before that time.
-The Julian calendar introduced an extra day in all years divisible by
-four.  After some initial confusion, the calendar was adopted around
-the year we call 8 AD@.  Some centuries later it became
-apparent that the Julian year of 365.25 days was itself not quite
-right.  In 1582 Pope Gregory XIII introduced the Gregorian calendar,
-which added the new rule that years divisible by 100, but not by 400,
-were not to be considered leap years despite being divisible by four.
-Many countries delayed adoption of the Gregorian calendar
-because of religious differences.  For example, Great Britain and the
-British colonies switched to the Gregorian calendar in September
-1752, when the Julian calendar was eleven days behind the
-Gregorian calendar.  That year in Britain, the day after September 2
-was September 14.  To take another example, Russia did not adopt the
-Gregorian calendar until 1918, and that year in Russia the day after
-January 31 was February 14.  Calc's reckoning therefore matches English
-practice starting in 1752 and Russian practice starting in 1918, but
-disagrees with earlier dates in both countries.
+Julius Caesar in the year 46 BC as an attempt to fix the gradual
+drift caused by the lack of leap years in the calendar used
+until that time.  The Julian calendar introduced an extra day in
+all years divisible by four.  After some initial confusion, the
+calendar was adopted around the year we call 8 AD@.  Some centuries
+later it became apparent that the Julian year of 365.25 days was
+itself not quite right.  In 1582 Pope Gregory XIII introduced the
+Gregorian calendar, which added the new rule that years divisible
+by 100, but not by 400, were not to be considered leap years
+despite being divisible by four.  Many countries delayed adoption
+of the Gregorian calendar because of religious differences;
+in Britain it was put off until the year 1752, by which time
+the Julian calendar had fallen eleven days behind the true
+seasons.  So the switch to the Gregorian calendar in early
+September 1752 introduced a discontinuity:  The day after
+Sep 2, 1752 is Sep 14, 1752.  Calc follows this convention.
+To take another example, Russia waited until 1918 before
+adopting the new calendar, and thus needed to remove thirteen
+days (between Feb 1, 1918 and Feb 14, 1918).  This means that
+Calc's reckoning will be inconsistent with Russian history between
+1752 and 1918, and similarly for various other countries.
 
-When the Julian calendar was introduced, it had January 1 as the first
-day of the year.  By the Middle Ages, many European countries
-had changed the beginning of a new year to a different date, often to
-a religious festival.  Almost all countries reverted to using January 1
-as the beginning of the year by the time they adopted the Gregorian
-calendar.
-
-Some calendars attempt to mimic the historical situation by using the
-Gregorian calendar for recent dates and the Julian calendar for older
-dates. The @code{cal} program in most Unix implementations does this,
-for example. While January 1 wasn't always the beginning of a calendar
-year, these hybrid calendars still use January 1 as the beginning of
-the year even for older dates.   The customizable variable
-@code{calc-gregorian-switch} (@pxref{Customizing Calc}) can be set to
-have Calc's date forms switch from the Julian to Gregorian calendar at
-any specified date.
-
-Today's timekeepers introduce an occasional ``leap second''.
-These do not occur regularly and Calc does not take these minor
-effects into account.  (If it did, it would have to report a
-non-integer number of days between, say,
-@samp{<12:00am Mon Jan 1, 1900>} and
+Today's timekeepers introduce an occasional ``leap second'' as
+well, but Calc does not take these minor effects into account.
+(If it did, it would have to report a non-integer number of days
+between, say, @samp{<12:00am Mon Jan 1, 1900>} and
 @samp{<12:00am Sat Jan 1, 2000>}.)
+
+Calc uses the Julian calendar for all dates before the year 1752,
+including dates BC when the Julian calendar technically had not
+yet been invented.  Thus the claim that day number @mathit{-10000} is
+called ``August 16, 28 BC'' should be taken with a grain of salt.
+
+Please note that there is no ``year 0''; the day before
+@samp{<Sat Jan 1, +1>} is @samp{<Fri Dec 31, -1>}.  These are
+days 0 and @mathit{-1} respectively in Calc's internal numbering scheme.
 
 @cindex Julian day counting
 Another day counting system in common use is, confusingly, also called
-``Julian.''  Julian days go from noon to noon.  The Julian day number
-is the numbers of days since 12:00 noon (GMT) on November 24, 4714 BC
-in the Gregorian calendar (i.e., January 1, 4713 BC in the Julian
-calendar).  In Calc's scheme (in GMT) the Julian day origin is
-@mathit{-1721422.5}, because Calc starts at midnight instead of noon.
-Thus to convert a Calc date code obtained by unpacking a
-date form into a Julian day number, simply add 1721422.5 after
+``Julian.''  The Julian day number is the numbers of days since
+12:00 noon (GMT) on Jan 1, 4713 BC, which in Calc's scheme (in GMT)
+is @mathit{-1721423.5} (recall that Calc starts at midnight instead
+of noon).  Thus to convert a Calc date code obtained by unpacking a
+date form into a Julian day number, simply add 1721423.5 after
 compensating for the time zone difference.  The built-in @kbd{t J}
 command performs this conversion for you.
 
@@ -11105,7 +11092,7 @@ the Julian cycle as an astronomical dating system; this idea was taken
 up by other astronomers.  (At the time, noon was the start of the
 astronomical day.  Herschel originally suggested counting the days
 since Jan 1, 4713 BC at noon Alexandria time; this was later amended to
-noon GMT@.)  Julian day numbering is largely used in astronomy.
+noon GMT.)  Julian day numbering is largely used in astronomy.
 
 @cindex Unix time format
 The Unix operating system measures time as an integer number of
@@ -11801,18 +11788,6 @@ prefix argument in the opposite way, and the default argument is 2.
 Thus @kbd{M-@key{DEL}} by itself removes the second-from-top stack element,
 leaving the first, third, fourth, and so on; @kbd{M-3 M-@key{DEL}} deletes
 the third stack element.
-
-The above commands do not depend on the location of the cursor.
-If the customizable variable @code{calc-context-sensitive-enter} is
-non-@code{nil} (@pxref{Customizing Calc}), these commands will become
-context sensitive.  For example, instead of duplicating the top of the stack,
-@key{RET} will copy the element at the cursor to the top of the
-stack.  With a positive numeric prefix, a copy of the element at the
-cursor and the appropriate number of preceding elements will be placed
-at the top of the stack.  A negative prefix will still duplicate the
-specified element of the stack regardless of the cursor  position.
-Similarly, @key{DEL} will remove the corresponding elements from the
-stack.
 
 @kindex @key{TAB}
 @pindex calc-roll-down
@@ -13429,91 +13404,12 @@ dates.  @xref{Specifying Operators}.  To avoid confusion with nameless
 functions, your date formats should avoid using the @samp{#} character.
 
 @menu
-* ISO 8601::
 * Date Formatting Codes::
 * Free-Form Dates::
 * Standard Date Formats::
 @end menu
 
-@node ISO 8601, Date Formatting Codes, Date Formats, Date Formats
-@subsubsection ISO 8601
-
-@noindent
-@cindex ISO 8601
-The same date can be written down in different formats and Calc tries
-to allow you to choose your preferred format.  Some common formats are
-ambiguous, however; for example, 10/11/2012 means October 11,
-2012 in the United States but it means November 10, 2012 in
-Europe.  To help avoid such ambiguities, the International Organization
-for Standardization (ISO) provides the ISO 8601 standard, which
-provides three different but easily distinguishable and unambiguous
-ways to represent a date.
-
-The ISO 8601 calendar date representation is
-
-@example
-   @var{YYYY}-@var{MM}-@var{DD}
-@end example
-
-@noindent
-where @var{YYYY} is the four digit year, @var{MM} is the two-digit month
-number (01 for January to 12 for December), and @var{DD} is the
-two-digit day of the month (01 to 31).  (Note that @var{YYYY} does not
-correspond to Calc's date formatting code, which will be introduced
-later.)  The year, which should be padded with zeros to ensure it has at
-least four digits, is the Gregorian year, except that the year before
-0001 (1 AD) is the year 0000 (1 BC).  The date October 11, 2012 is
-written 2012-10-11 in this representation and November 10, 2012 is
-written 2012-11-10.
-
-The ISO 8601 ordinal date representation is
-
-@example
-  @var{YYYY}-@var{DDD}
-@end example
-
-@noindent
-where @var{YYYY} is the year, as above, and @var{DDD} is the day of the year.
-The date December 31, 2011 is written 2011-365 in this representation
-and January 1, 2012 is written 2012-001.
-
-The ISO 8601 week date representation is
-
-@example
- @var{YYYY}-W@var{ww}-@var{D}
-@end example
-
-@noindent
-where @var{YYYY} is the ISO week-numbering year, @var{ww} is the two
-digit week number (preceded by a literal ``W''), and @var{D} is the day
-of the week (1 for Monday through 7 for Sunday).  The ISO week-numbering
-year is based on the Gregorian year but can differ slightly.  The first
-week of an ISO week-numbering year is the week with the Gregorian year's
-first Thursday in it (equivalently, the week containing January 4);
-any day of that week (Monday through Sunday) is part of the same ISO
-week-numbering year, any day from the previous week is part of the
-previous year.  For example, January 4, 2013 is on a Friday, and so
-the first week for the ISO week-numbering year 2013 starts  on
-Monday, December 31, 2012.  The day December 31, 2012 is then part of the
-Gregorian year 2012 but ISO week-numbering year 2013.  In the week
-date representation, this week goes from 2013-W01-1 (December 31,
-2012) to 2013-W01-7 (January 6, 2013).
-
-All three ISO 8601 representations arrange the numbers from most
-significant to least significant; as well as being unambiguous
-representations, they are easy to sort since chronological order in
-this formats corresponds to lexicographical order. The hyphens are
-sometimes omitted.
-
-The ISO 8601 standard uses a 24 hour clock; a particular time is
-represented by @var{hh}:@var{mm}:@var{ss} where @var{hh} is the
-two-digit hour (from 00 to 24), @var{mm} is the two-digit minute (from
-00 to 59) and @var{ss} is the two-digit second.  The seconds or minutes
-and seconds can be omitted, and decimals can be added.  If a date with a
-time is represented, they should be separated by a literal ``T'', so noon
-on December 13, 2012 can be represented as 2012-12-13T12:00.
-
-@node Date Formatting Codes, Free-Form Dates, ISO 8601, Date Formats
+@node Date Formatting Codes, Free-Form Dates, Date Formats, Date Formats
 @subsubsection Date Formatting Codes
 
 @noindent
@@ -13530,7 +13426,7 @@ the time part.  The punctuation characters (including spaces) must
 match exactly; letter fields must correspond to suitable text in
 the input.  If this doesn't work, Calc checks if the input is a
 simple number; if so, the number is interpreted as a number of days
-since Dec 31, 1 BC@.  Otherwise, Calc tries a much more relaxed and
+since Jan 1, 1 AD@.  Otherwise, Calc tries a much more relaxed and
 flexible algorithm which is described in the next section.
 
 Weekday names are ignored during reading.
@@ -13554,10 +13450,6 @@ Year:  ``91'' for 1991, `` 7'' for 2007, ``+23'' for 23 AD.
 Year:  ``1991'' for 1991, ``23'' for 23 AD.
 @item YYYY
 Year:  ``1991'' for 1991, ``+23'' for 23 AD.
-@item ZYYY
-Year:  ``1991'' for 1991, ``0023'' for 23 AD, ``0000'' for 1 BC.
-@item IYYY
-Year:  ISO 8601 week-numbering year.
 @item aa
 Year:  ``ad'' or blank.
 @item AA
@@ -13606,8 +13498,6 @@ Day:  ``07'' for 7th day of month.
 Day:  `` 7'' for 7th day of month.
 @item W
 Weekday:  ``0'' for Sunday, ``6'' for Saturday.
-@item w
-Weekday:  ``1'' for Monday, ``7'' for Sunday.
 @item WWW
 Weekday:  ``SUN'' for Sunday.
 @item Www
@@ -13618,16 +13508,12 @@ Weekday:  ``sun'' for Sunday.
 Weekday:  ``SUNDAY'' for Sunday.
 @item Wwww
 Weekday:  ``Sunday'' for Sunday.
-@item Iww
-Week number:  ISO 8601 week number, ``W01'' for week 1.
 @item d
 Day of year:  ``34'' for Feb. 3.
 @item ddd
 Day of year:  ``034'' for Feb. 3.
 @item bdd
 Day of year:  `` 34'' for Feb. 3.
-@item T
-Letter:  Literal ``T''.
 @item h
 Hour:  ``5'' for 5 AM; ``17'' for 5 PM.
 @item hh
@@ -13730,21 +13616,15 @@ abbreviated to one letter, and the alternate forms @samp{a.m.},
 @samp{p.m.}, and @samp{mid} are also understood.  Obviously
 @samp{noon} and @samp{midnight} are allowed only on 12:00:00.
 The words @samp{noon}, @samp{mid}, and @samp{midnight} are also
-recognized with no number attached.  Midnight will represent the
-beginning of a day.
+recognized with no number attached.
 
 If there is no AM/PM indicator, the time is interpreted in 24-hour
 format.
 
-When reading the date portion, Calc first checks to see if it is an
-ISO 8601 week-numbering date; if the string contains an integer
-representing the year, a ``W'' followed by two digits for the week
-number, and an integer from 1 to 7 representing the weekday (in that
-order), then all other characters are ignored and this information
-determines the date.  Otherwise, all words and numbers are isolated
-from the string; other characters are ignored.  All words must be
-either month names or day-of-week names (the latter of which are
-ignored). Names can be written in full or as three-letter
+To read the date portion, all words and numbers are isolated
+from the string; other characters are ignored.  All words must
+be either month names or day-of-week names (the latter of which
+are ignored).  Names can be written in full or as three-letter
 abbreviations.
 
 Large numbers, or numbers with @samp{+} or @samp{-} signs,
@@ -13807,10 +13687,6 @@ command (@pxref{Mode Settings}).
 @samp{j<, h:mm:ss>}  (Julian day plus time)
 @item 9
 @samp{YYddd< hh:mm:ss>}  (Year-day format)
-@item 10
-@samp{ZYYY-MM-DD Www< hh:mm>} (Org mode format)
-@item 11
-@samp{IYYY-Iww-w<Thh:mm:ss>} (ISO 8601 week numbering format)
 @end table
 
 @node Truncating the Stack, Justification, Date Formats, Display Modes
@@ -27872,13 +27748,17 @@ while typing @kbd{u c au/yr @key{RET}} produces
 
 If the units you request are inconsistent with the original units, the
 number will be converted into your units times whatever ``remainder''
-units are left over.  (This can be disabled; @pxref{Customizing Calc}.)
-For example, converting @samp{55 mph} into acres
+units are left over.  For example, converting @samp{55 mph} into acres
 produces @samp{6.08e-3 acre / m s}.  (Recall that multiplication binds
 more strongly than division in Calc formulas, so the units here are
 acres per meter-second.)  Remainder units are expressed in terms of
 ``fundamental'' units like @samp{m} and @samp{s}, regardless of the
 input units.
+
+If you want to disallow using inconsistent units, you can set the customizable variable
+@code{calc-ensure-consistent-units} to @code{t} (@pxref{Customizing Calc}).  In this case,
+if you request units which are inconsistent with the original units, you will be warned about
+it and no conversion will occur.
 
 One special exception is that if you specify a single unit name, and
 a compatible unit appears somewhere in the units expression, then
@@ -27921,13 +27801,10 @@ Composite units are expanded as if by @kbd{a x}, so that
 
 If the value on the stack does not contain any units, @kbd{u c} will
 prompt first for the old units which this value should be considered
-to have, then for the new units.  (If the value on the stack can be
-simplified so that it doesn't contain any units, like @samp{ft/in} can
-be simplified to 12, then @kbd{u c} will still prompt for both old
-units and new units.   Assuming the old and new units you give are
-consistent with each other, the result also will not contain any
-units.  For example, @kbd{@w{u c} cm @key{RET} in @key{RET}} converts
-the number 2 on the stack to 5.08.
+to have, then for the new units.  Assuming the old and new units you
+give are consistent with each other, the result also will not contain
+any units.  For example, @kbd{@w{u c} cm @key{RET} in @key{RET}}
+converts the number 2 on the stack to 5.08.
 
 @kindex u b
 @pindex calc-base-units
@@ -28053,8 +27930,8 @@ radiation related to the cesium-133 atom.  The only SI unit that is not
 based on a fundamental physical process (although there are efforts to
 change this) is the kilogram, which was originally defined as the mass
 of one liter of water, but is now defined as the mass of the
-international prototype of the kilogram (IPK), a cylinder of platinum-iridium
-kept at the Bureau international des poids et mesures in S@`evres,
+International Prototype Kilogram (IPK), a cylinder of platinum-iridium
+kept at the Bureau International des Poids et Mesures in S@`evres,
 France.  (There are several copies of the IPK throughout the world.)
 The British imperial units, once defined in terms of physical objects,
 were redefined in 1963 in terms of SI units.  The US customary units,
@@ -33319,15 +33196,12 @@ Lisp integers.  This is the only storage format for Calc data objects
 which is not a Lisp list.
 
 Large integers are stored as lists of the form @samp{(bigpos @var{d0}
-@var{d1} @var{d2} @dots{})} for sufficiently large positive integers
-(where ``sufficiently large'' depends on the machine), or
-@samp{(bigneg @var{d0} @var{d1} @var{d2} @dots{})} for negative
-integers.  Each @var{d} is a base-@expr{10^n} ``digit'' (where again,
-@expr{n} depends on the machine), a Lisp integer from 0 to
-99@dots{}9.  The least significant digit is @var{d0}; the last digit,
+@var{d1} @var{d2} @dots{})} for positive integers 1000000 or more, or
+@samp{(bigneg @var{d0} @var{d1} @var{d2} @dots{})} for negative integers
+@mathit{-1000000} or less.  Each @var{d} is a base-1000 ``digit,'' a Lisp integer
+from 0 to 999.  The least significant digit is @var{d0}; the last digit,
 @var{dn}, which is always nonzero, is the most significant digit.  For
-example, the integer @mathit{-12345678} might be stored as
-@samp{(bigneg 678 345 12)}.
+example, the integer @mathit{-12345678} is stored as @samp{(bigneg 678 345 12)}.
 
 The distinction between small and large integers is entirely hidden from
 the user.  In @code{defmath} definitions, the Lisp predicate @code{integerp}
@@ -35709,16 +35583,6 @@ have different dimensions. The default value of @code{calc-ensure-consistent-uni
 is @code{nil}.
 @end defvar
 
-@defvar calc-context-sensitive-enter
-The commands @code{calc-enter} and @code{calc-pop} will typically
-duplicate the top of the stack.  If
-@code{calc-context-sensitive-enter} is non-@code{nil}, then the
-@code{calc-enter} will copy the element at the cursor to the
-top of the stack and @code{calc-pop} will delete the element at the
-cursor.  The default value of @code{calc-context-sensitive-enter} is
-@code{nil}.
-@end defvar
-
 @defvar calc-undo-length
 The variable @code{calc-undo-length} determines the number of undo
 steps that Calc will keep track of when @code{calc-quit} is called.
@@ -35726,20 +35590,6 @@ If @code{calc-undo-length} is a non-negative integer, then this is the
 number of undo steps that will be preserved; if
 @code{calc-undo-length} has any other value, then all undo steps will
 be preserved.  The default value of @code{calc-undo-length} is @expr{100}.
-@end defvar
-
-@defvar calc-gregorian-switch
-See @ref{Date Forms}.@*
-The variable @code{calc-gregorian-switch} is either a list of integers
-@code{(@var{YEAR} @var{MONTH} @var{DAY})} or @code{nil}.
-If it is @code{nil}, then Calc's date forms always represent Gregorian dates.
-Otherwise, @code{calc-gregorian-switch} represents the date that the
-calendar switches from Julian dates to Gregorian dates;
-@code{(@var{YEAR} @var{MONTH} @var{DAY})} will be the first Gregorian
-date.  The customization buffer will offer several standard dates to
-choose from, or the user can enter their own date.
-
-The default value of @code{calc-gregorian-switch} is @code{nil}.
 @end defvar
 
 @node Reporting Bugs, Summary, Customizing Calc, Top

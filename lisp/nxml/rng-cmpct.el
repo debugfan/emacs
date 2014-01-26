@@ -1,6 +1,6 @@
 ;;; rng-cmpct.el --- parsing of RELAX NG Compact Syntax schemas
 
-;; Copyright (C) 2003, 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2003, 2007-2013 Free Software Foundation, Inc.
 
 ;; Author: James Clark
 ;; Keywords: XML, RelaxNG
@@ -45,8 +45,13 @@ Return a pattern."
 
 ;;; Error handling
 
-(define-error 'rng-c-incorrect-schema
-  "Incorrect schema" '(rng-error nxml-file-parse-error))
+(put 'rng-c-incorrect-schema
+     'error-conditions
+     '(error rng-error nxml-file-parse-error rng-c-incorrect-schema))
+
+(put 'rng-c-incorrect-schema
+     'error-message
+     "Incorrect schema")
 
 (defun rng-c-signal-incorrect-schema (filename pos message)
   (nxml-signal-file-parse-error filename

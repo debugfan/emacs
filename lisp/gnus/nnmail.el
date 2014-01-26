@@ -1,6 +1,6 @@
 ;;; nnmail.el --- mail support functions for the Gnus mail backends
 
-;; Copyright (C) 1995-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1995-2013 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: news, mail
@@ -374,7 +374,7 @@ messages will be shown to indicate the current status."
                  (number :tag "count")))
 
 (define-widget 'nnmail-lazy 'default
-  "Base widget for recursive data structures.
+  "Base widget for recursive datastructures.
 
 This is copy of the `lazy' widget in Emacs 22.1 provided for compatibility."
   :format "%{%t%}: %v"
@@ -1952,13 +1952,9 @@ If TIME is nil, then return the cutoff time for oldness instead."
        ((and (equal header 'to-from)
 	     (or (string-match (cadr regexp-target-pair) from)
 		 (and (string-match (cadr regexp-target-pair) to)
-		      (let* ((mail-dont-reply-to-names
-			      (message-dont-reply-to-names))
-			     (rmail-dont-reply-to-names ; obsolete since 24.1
-			      mail-dont-reply-to-names))
-			(equal (if (fboundp 'rmail-dont-reply-to)
-				   (rmail-dont-reply-to from)
-				 (mail-dont-reply-to from)) "")))))
+		      (let ((rmail-dont-reply-to-names
+			     (message-dont-reply-to-names)))
+			(equal (rmail-dont-reply-to from) "")))))
 	(setq target (format-time-string (caddr regexp-target-pair) date)))
        ((and (not (equal header 'to-from))
 	     (string-match (cadr regexp-target-pair)

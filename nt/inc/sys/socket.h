@@ -1,4 +1,4 @@
-/* Copyright (C) 1995, 2001-2014 Free Software Foundation, Inc.
+/* Copyright (C) 1995, 2001-2013 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -43,9 +43,8 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #undef FD_ZERO
 #endif
 
-/* Avoid duplicate definition of timeval.  MinGW uses _TIMEVAL_DEFINED
-   in sys/time.h to avoid that.  */
-#if defined (HAVE_TIMEVAL) && defined (_MSC_VER)
+/* avoid duplicate definition of timeval */
+#ifdef HAVE_TIMEVAL
 #define timeval ws_timeval
 #endif
 
@@ -63,9 +62,7 @@ typedef unsigned short uint16_t;
 #undef MUST_REDEF_SELECT
 #endif
 
-/* Revert to our version of FD_SET, but not when included from test
-   programs run by configure.  */
-#ifdef EMACS_CONFIG_H
+/* revert to our version of FD_SET */
 #undef FD_SET
 #undef FD_CLR
 #undef FD_ISSET
@@ -74,9 +71,8 @@ typedef unsigned short uint16_t;
 /* allow us to provide our own version of fd_set */
 #define fd_set ws_fd_set
 #include "w32.h"
-#endif	/* EMACS_CONFIG_H */
 
-#if defined (HAVE_TIMEVAL) && defined (_MSC_VER)
+#ifdef HAVE_TIMEVAL
 #undef timeval
 #endif
 
@@ -123,11 +119,7 @@ int sys_sendto (int s, const char * buf, int len, int flags,
    an fcntl function, for setting sockets to non-blocking mode.  */
 int fcntl (int s, int cmd, int options);
 #define F_SETFL   4
-#define F_SETFD   2
-#define O_NONBLOCK  04000
-#define O_CLOEXEC O_NOINHERIT
-#define F_DUPFD_CLOEXEC 0x40000000
-#define FD_CLOEXEC 1
+#define O_NDELAY  04000
 
 /* we are providing a real h_errno variable */
 #undef h_errno

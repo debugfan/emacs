@@ -1,6 +1,6 @@
 ;;; options.el --- edit Options command for Emacs
 
-;; Copyright (C) 1985, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 2001-2013 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Obsolete-since: 22.1
@@ -42,7 +42,7 @@ It is now better to use Customize instead."
       (princ "This facility is obsolete; we recommend using M-x customize instead.")
 
       (mapatoms (function (lambda (sym)
-			    (if (custom-variable-p sym)
+			    (if (user-variable-p sym)
 				(setq vars (cons sym vars))))))
       (setq vars (sort vars 'string-lessp))
       (while vars
@@ -88,7 +88,7 @@ The Custom feature is intended to make this obsolete."
 ;; Edit Options mode is suitable only for specially formatted data.
 (put 'Edit-options-mode 'mode-class 'special)
 
-(define-derived-mode Edit-options-mode emacs-lisp-mode "Options"
+(defun Edit-options-mode ()
   "\\<Edit-options-mode-map>\
 Major mode for editing Emacs user option settings.
 Special commands are:
@@ -100,9 +100,17 @@ Changed values made by these commands take effect immediately.
 
 Each variable description is a paragraph.
 For convenience, the characters \\[backward-paragraph] and \\[forward-paragraph] move back and forward by paragraphs."
-  (setq-local paragraph-separate "[^\^@-\^?]")
-  (setq-local paragraph-start "\t")
-  (setq-local truncate-lines t))
+  (kill-all-local-variables)
+  (set-syntax-table emacs-lisp-mode-syntax-table)
+  (use-local-map Edit-options-mode-map)
+  (make-local-variable 'paragraph-separate)
+  (setq paragraph-separate "[^\^@-\^?]")
+  (make-local-variable 'paragraph-start)
+  (setq paragraph-start "\t")
+  (setq truncate-lines t)
+  (setq major-mode 'Edit-options-mode)
+  (setq mode-name "Options")
+  (run-mode-hooks 'Edit-options-mode-hook))
 
 (defun Edit-options-set () (interactive)
   (Edit-options-modify

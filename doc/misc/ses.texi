@@ -1,18 +1,17 @@
-\input texinfo   @c -*- mode: texinfo; coding: utf-8; -*-
+\input texinfo   @c -*-texinfo-*-
 @c %**start of header
 @setfilename ../../info/ses
-@settitle @acronym{SES}: Simple Emacs Spreadsheet
+@settitle SES: Simple Emacs Spreadsheet
 @setchapternewpage off
 @syncodeindex fn cp
 @syncodeindex vr cp
 @syncodeindex ky cp
-@documentencoding UTF-8
 @c %**end of header
 
 @copying
-This file documents @acronym{SES}: the Simple Emacs Spreadsheet.
+This file documents SES: the Simple Emacs Spreadsheet.
 
-Copyright @copyright{} 2002--2014 Free Software Foundation, Inc.
+Copyright @copyright{} 2002--2013 Free Software Foundation, Inc.
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document
@@ -29,13 +28,13 @@ modify this GNU manual.''
 
 @dircategory Emacs misc features
 @direntry
-* @acronym{SES}: (ses).                   Simple Emacs Spreadsheet.
+* SES: (ses).                   Simple Emacs Spreadsheet.
 @end direntry
 
 @finalout
 
 @titlepage
-@title @acronym{SES}
+@title SES
 @subtitle Simple Emacs Spreadsheet
 @author Jonathan A. Yavner
 @author @email{jyavner@@member.fsf.org}
@@ -50,24 +49,23 @@ modify this GNU manual.''
 @c ===================================================================
 
 @ifnottex
-@node Top
+@node Top, Sales Pitch, (dir), (dir)
 @comment  node-name,  next,  previous,  up
-@top @acronym{SES}: Simple Emacs Spreadsheet
+@top SES: Simple Emacs Spreadsheet
 
 @display
-@acronym{SES} is a major mode for GNU Emacs to edit spreadsheet files, which
+SES is a major mode for GNU Emacs to edit spreadsheet files, which
 contain a rectangular grid of cells.  The cells' values are specified
 by formulas that can refer to the values of other cells.
 @end display
 @end ifnottex
 
-To report bugs, use @kbd{M-x report-emacs-bug}.
+To report bugs, send email to @email{jyavner@@member.fsf.org}.
 
 @insertcopying
 
 @menu
-* Sales Pitch::                 Why use @acronym{SES}?
-* Quick Tutorial::              A quick introduction
+* Sales Pitch::                 Why use SES?
 * The Basics::                  Basic spreadsheet commands
 * Advanced Features::           Want to know more?
 * For Gurus::                   Want to know @emph{even more}?
@@ -78,7 +76,7 @@ To report bugs, use @kbd{M-x report-emacs-bug}.
 
 @c ===================================================================
 
-@node Sales Pitch
+@node Sales Pitch, The Basics, Top, Top
 @comment  node-name,  next,  previous,  up
 @chapter Sales Pitch
 @cindex features
@@ -100,96 +98,7 @@ To report bugs, use @kbd{M-x report-emacs-bug}.
 
 @c ===================================================================
 
-@node Quick Tutorial
-@chapter Quick Tutorial
-@cindex introduction
-@cindex tutorial
-
-If you want to get started quickly and think that you know what to
-expect from a simple spreadsheet, this chapter may be all that you
-need.
-
-First, visit a new file with the @file{.ses} extension.
-Emacs presents you with an empty spreadsheet containing a single cell.
-
-Begin by inserting a headline: @kbd{"Income"@key{RET}}.  The double
-quotes indicate that this is a text cell.  (Notice that Emacs
-automatically inserts the closing quotation mark.)
-
-To insert your first income value, you must first resize the
-spreadsheet.  Press @key{TAB} to add a new cell and navigate back up
-to it.  Enter a number, such as @samp{2.23}.  Then proceed to add a
-few more income entries, e.g.:
-
-@example
-@group
-A
- Income
-   2.23
-   0.02
-  15.76
-  -4.00
-@end group
-@end example
-
-To add up the values, enter a Lisp expression:
-
-@example
-(+ A2 A3 A4 A5)
-@end example
-
-Perhaps you want to add a cell to the right of cell A4 to explain
-why you have a negative entry.  Pressing @kbd{TAB} in that cell
-adds an entire new column @samp{B}, where you can add such a note.
-
-The column is fairly narrow by default, but pressing @kbd{w} allows
-you to resize it as needed.  Make it 20 characters wide.  You can
-now add descriptive legends for all the entries, e.g.:
-
-@example
-@group
-A       B
- Income
-   2.23       Consulting fee
-   0.02     Informed opinion
-  15.76       Lemonade stand
-     -4          Loan to Joe
-  14.01                Total
-@end group
-@end example
-
-By default, the labels in column B are right-justified.  To change
-that, you can enter a printer function for the whole column, using
-e.g., @kbd{M-p ("%s")}.  You can override a column's printer function
-in any individual cell using @kbd{p}.
-
-If Joe pays back his loan, you might blank that entry; e.g., by
-positioning the cursor in cell A5 and pressing @kbd{C-d} twice.
-If you do that, the total cell will display @samp{######}.  That is
-because the regular @code{+} operator does not handle a range that
-contains some empty cells.  Instead of emptying the cell, you could
-enter a literal @samp{0}, or delete the entire row using @kbd{C-k}.
-An alternative is to use the special function @code{ses+} instead of
-the regular @code{+}:
-
-@example
-(ses+ A2 A3 A4 A5)
-@end example
-
-To make a formula robust against changes in the spreadsheet geometry,
-you can use the @code{ses-range} macro to refer to a range of cells by
-the end-points, e.g.:
-
-@example
-(apply 'ses+ (ses-range A2 A5))
-@end example
-
-(The @code{apply} is necessary because @code{ses-range} produces a
-@emph{list} of values.  This allows for more complex possibilities.)
-
-@c ===================================================================
-
-@node The Basics
+@node The Basics, Advanced Features, Sales Pitch, Top
 @comment  node-name,  next,  previous,  up
 @chapter The Basics
 @cindex basic commands
@@ -208,7 +117,6 @@ A @dfn{cell identifier} is a symbol with a column letter and a row
 number.  Cell B7 is the 2nd column of the 7th row.  For very wide
 spreadsheets, there are two column letters: cell AB7 is the 28th
 column of the 7th row. Super wide spreadsheets get AAA1, etc.
-You move around with the regular Emacs movement commands.
 
 @table @kbd
 @item j
@@ -217,9 +125,9 @@ Moves point to cell, specified by identifier (@code{ses-jump}).
 
 Point is always at the left edge of a cell, or at the empty endline.
 When mark is inactive, the current cell is underlined.  When mark is
-active, the range is the highlighted rectangle of cells (@acronym{SES} always
+active, the range is the highlighted rectangle of cells (SES always
 uses transient mark mode).  Drag the mouse from A1 to A3 to create the
-range A1-A2.  Many @acronym{SES} commands operate only on single cells, not
+range A1-A2.  Many SES commands operate only on single cells, not
 ranges.
 
 @table @kbd
@@ -246,24 +154,20 @@ Highlight all cells (@code{mark-whole-buffer}).
 * Printer functions::
 * Clearing cells::
 * Copy/cut/paste::
-* Customizing @acronym{SES}::
+* Customizing SES::
 @end menu
 
-@node Formulas
+@node Formulas, Resizing, The Basics, The Basics
 @section Cell formulas
 @cindex formulas
 @cindex formulas, entering
-@cindex values
-@cindex cell values
-@cindex editing cells
 @findex ses-read-cell
 @findex ses-read-symbol
 @findex ses-edit-cell
 @findex ses-recalculate-cell
 @findex ses-recalculate-all
 
-To insert a value into a cell, simply type a numeric expression,
-@samp{"double-quoted text"}, or a Lisp expression.
+To enter a number into the current cell, just start typing:
 
 @table @kbd
 @item 0..9
@@ -287,7 +191,7 @@ this cell's formula will be reevaluated.  While typing in the
 expression, you can use @kbd{M-@key{TAB}} to complete symbol names.
 
 @item ' @r{(apostrophe)}
-Enter a symbol (ses-read-symbol).  @acronym{SES} remembers all symbols that have
+Enter a symbol (ses-read-symbol).  SES remembers all symbols that have
 been used as formulas, so you can type just the beginning of a symbol
 and use @kbd{@key{SPC}}, @kbd{@key{TAB}}, and @kbd{?} to complete it.
 @end table
@@ -306,16 +210,9 @@ Force recalculation of the current cell or range (@code{ses-recalculate-cell}).
 Recalculate the entire spreadsheet (@code{ses-recalculate-all}).
 @end table
 
-@node Resizing
+@node Resizing, Printer functions, Formulas, The Basics
 @section Resizing the spreadsheet
 @cindex resizing spreadsheets
-@cindex dimensions
-@cindex row, adding or removing
-@cindex column, adding or removing
-@cindex adding rows or columns
-@cindex inserting rows or columns
-@cindex removing rows or columns
-@cindex deleting rows or columns
 @findex ses-insert-row
 @findex ses-insert-column
 @findex ses-delete-row
@@ -369,11 +266,9 @@ Undo previous action (@code{(undo)}).
 @end table
 
 
-@node Printer functions
+@node Printer functions, Clearing cells, Resizing, The Basics
 @section Printer functions
 @cindex printer functions
-@cindex cell formatting
-@cindex formatting cells
 @findex ses-read-cell-printer
 @findex ses-read-column-printer
 @findex ses-read-default-printer
@@ -436,7 +331,7 @@ Centering with tildes (~) and spill-over.
 @end table
 
 
-@node Clearing cells
+@node Clearing cells, Copy/cut/paste, Printer functions, The Basics
 @section Clearing cells
 @cindex clearing commands
 @findex ses-clear-cell-backward
@@ -453,7 +348,7 @@ Clear cell and move right (@code{ses-clear-cell-forward}).
 @end table
 
 
-@node Copy/cut/paste
+@node Copy/cut/paste, Customizing SES, Clearing cells, The Basics
 @section Copy, cut, and paste
 @cindex copy
 @cindex cut
@@ -469,7 +364,7 @@ Clear cell and move right (@code{ses-clear-cell-forward}).
 @findex ses-yank-pop
 
 The copy functions work on rectangular regions of cells.  You can paste the
-copies into non-@acronym{SES} buffers to export the print text.
+copies into non-SES buffers to export the print text.
 
 @table @kbd
 @item M-w
@@ -498,7 +393,7 @@ Paste from kill ring (@code{yank}).  The paste functions behave
 differently depending on the format of the text being inserted:
 @itemize @bullet
 @item
-When pasting cells that were cut from a @acronym{SES} buffer, the print text is
+When pasting cells that were cut from a SES buffer, the print text is
 ignored and only the attached formula and printer are inserted; cell
 references in the formula are relocated unless you use @kbd{C-u}.
 @item
@@ -506,7 +401,7 @@ The pasted text overwrites a rectangle of cells whose top left corner
 is the current cell.  If part of the rectangle is beyond the edges of
 the spreadsheet, you must confirm the increase in spreadsheet size.
 @item
-Non-@acronym{SES} text is usually inserted as a replacement formula for the
+Non-SES text is usually inserted as a replacement formula for the
 current cell.  If the formula would be a symbol, it's treated as a
 string unless you use @kbd{C-u}.  Pasted formulas with syntax errors
 are always treated as strings.
@@ -524,12 +419,12 @@ Set point and paste from secondary clipboard (@code{mouse-yank-secondary}).
 @item M-y
 Immediately after a paste, you can replace the text with a preceding
 element from the kill ring (@code{ses-yank-pop}).  Unlike the standard
-Emacs yank-pop, the @acronym{SES} version uses @code{undo} to delete the old
+Emacs yank-pop, the SES version uses @code{undo} to delete the old
 yank.  This doesn't make any difference?
 @end table
 
-@node Customizing @acronym{SES}
-@section Customizing @acronym{SES}
+@node Customizing SES,  , Copy/cut/paste, The Basics
+@section Customizing SES
 @cindex customizing
 @vindex enable-local-eval
 @vindex ses-mode-hook
@@ -547,7 +442,7 @@ up or down.  For diagonal movement, select two functions from the
 list.
 
 @code{ses-mode-hook} is a normal mode hook (list of functions to
-execute when starting @acronym{SES} mode for a buffer).
+execute when starting SES mode for a buffer).
 
 The variable @code{safe-functions} is a list of possibly-unsafe
 functions to be treated as safe when analyzing formulas and printers.
@@ -565,7 +460,7 @@ safety belts!
 
 @c ===================================================================
 
-@node Advanced Features
+@node Advanced Features, For Gurus, The Basics, Top
 @chapter Advanced Features
 @cindex advanced features
 @findex ses-read-header-row
@@ -573,10 +468,7 @@ safety belts!
 
 @table @kbd
 @item C-c M-C-h
-(@code{ses-set-header-row}).
-@findex ses-set-header-row
-@kindex C-c M-C-h
-The header line at the top of the @acronym{SES}
+(@code{ses-set-header-row}).  The header line at the top of the SES
 window normally shows the column letter for each column.  You can set
 it to show a copy of some row, such as a row of column titles, so that
 row will always be visible.  Default is to set the current row as the
@@ -585,16 +477,6 @@ show column letters again.
 @item [header-line mouse-3]
 Pops up a menu to set the current row as the header, or revert to
 column letters.
-@item M-x ses-rename-cell
-@findex ses-rename-cell
-Rename a cell from a standard A1-like name to any
-string.
-@item M-x ses-repair-cell-reference-all
-@findex ses-repair-cell-reference-all
-When you interrupt a cell formula update by clicking @kbd{C-g}, then
-the cell reference link may be broken, which will jeopardize automatic
-cell update when any other cell on which it depends is changed. To
-repair that use function @code{ses-repair-cell-reference-all}
 @end table
 
 @menu
@@ -608,16 +490,16 @@ repair that use function @code{ses-repair-cell-reference-all}
 * Spreadsheets with details and summary::
 @end menu
 
-@node The print area
+@node The print area, Ranges in formulas, Advanced Features, Advanced Features
 @section The print area
 @cindex print area
 @findex widen
 @findex ses-renarrow-buffer
 @findex ses-reprint-all
 
-A @acronym{SES} file consists of a print area and a data area.  Normally the
+A SES file consists of a print area and a data area.  Normally the
 buffer is narrowed to show only the print area.  The print area is
-read-only except for special @acronym{SES} commands; it contains cell values
+read-only except for special SES commands; it contains cell values
 formatted by printer functions.  The data area records the formula and
 printer functions, etc.
 
@@ -634,7 +516,7 @@ Recreate print area by reevaluating printer functions for all cells
 (@code{ses-reprint-all}).
 @end table
 
-@node Ranges in formulas
+@node Ranges in formulas, Sorting by column, The print area, Advanced Features
 @section Ranges in formulas
 @cindex ranges
 @findex ses-insert-range-click
@@ -693,54 +575,8 @@ If you insert a new row just beyond the end of a one-column range, or
 a new column just beyond a one-row range, the new cell is included in
 the range.  New cells inserted just before a range are not included.
 
-Flags can be added to @code{ses-range} immediately after the @var{to}
-cell.
-@table @code
-@item !
-Empty cells in range can be removed by adding the @code{!} flag. An
-empty cell is a cell the value of which is one of symbols @code{nil}
-or @code{*skip*}. For instance @code{(ses-range A1 A4 !)} will do the
-same as @code{(list A1 A3)} when cells @code{A2} and @code{A4} are
-empty.
-@item _
-Empty cell values are replaced by the argument following flag
-@code{_}, or @code{0} when flag @code{_} is last in argument list. For
-instance @code{(ses-range A1 A4 _ "empty")} will do the same as
-@code{(list A1 "empty" A3 "empty")} when cells @code{A2} and @code{A4}
-are empty. Similarly, @code{(ses-range A1 A4 _ )} will do the same as
-@code{(list A1 0 A3 0)}.
-@item >v
-When order matters, list cells by reading cells row-wise from top left
-to bottom right. This flag is provided for completeness only as it is
-the default reading order.
-@item <v
-List cells by reading cells row-wise from top right to bottom left.
-@item v>
-List cells by reading cells column-wise from top left to bottom right.
-@item v<
-List cells by reading cells column-wise from top right to bottom left.
-@item v
-A short hand for @code{v>}.
-@item ^
-A short hand for @code{^>}.
-@item >
-A short hand for @code{>v}.
-@item <
-A short hand for @code{>^}.
-@item *
-Instead of listing cells, it makes a Calc vector or matrix of it
-(@pxref{Top,,,calc,GNU Emacs Calc Manual}). If the range contains only
-one row or one column a vector is made, otherwise a matrix is made.
-@item *2
-Same as @code{*} except that a matrix is always made even when there
-is only one row or column in the range.
-@item *1
-Same as @code{*} except that a vector is always made even when there
-is only one row or column in the range, that is to say the
-corresponding matrix is flattened.
-@end table
 
-@node Sorting by column
+@node Sorting by column, Standard formula functions, Ranges in formulas, Advanced Features
 @section Sorting by column
 @cindex sorting
 @findex ses-sort-column
@@ -769,7 +605,7 @@ formulas that refer to other rows in the range or to cells outside the
 range.
 
 
-@node Standard formula functions
+@node Standard formula functions, More on cell printing, Sorting by column, Advanced Features
 @section Standard formula functions
 @cindex standard formula functions
 @cindex *skip*
@@ -794,7 +630,7 @@ Average of non-blank elements in @var{list}.  Here the list is passed
 as a single argument, since you'll probably use it with @code{ses-range}.
 @end table
 
-@node More on cell printing
+@node More on cell printing, Import and export, Standard formula functions, Advanced Features
 @section More on cell printing
 @cindex cell printing, more
 @findex ses-truncate-cell
@@ -816,7 +652,7 @@ the result is too wide for the available space (up to the end of the
 row or the next non-@code{nil} cell), the result is truncated if the cell's
 value is a string, or replaced with hash marks otherwise.
 
-@acronym{SES} could get confused by printer results that contain newlines or
+SES could get confused by printer results that contain newlines or
 tabs, so these are replaced with question marks.
 
 @table @kbd
@@ -842,7 +678,7 @@ that are empty of contain strings will use the fallback printer.
 argument type''.
 
 
-@node Import and export
+@node Import and export, Virus protection, More on cell printing, Advanced Features
 @section Import and export
 @cindex import and export
 @cindex export, and import
@@ -862,7 +698,7 @@ another buffer.  Columns are separated by tabs, rows by newlines.
 To import text, use any of the yank commands where the text to paste
 contains tabs and/or newlines.  Imported formulas are not relocated.
 
-@node Virus protection
+@node Virus protection, Spreadsheets with details and summary, Import and export, Advanced Features
 @section Virus protection
 @cindex virus protection
 
@@ -889,7 +725,7 @@ parts of the Emacs Lisp environment can be excluded without cramping
 your style as a formula-writer.  See the documentation in @file{unsafep.el}
 for more info on how Lisp forms are classified as safe or unsafe.
 
-@node Spreadsheets with details and summary
+@node Spreadsheets with details and summary,  , Virus protection, Advanced Features
 @section Spreadsheets with details and summary
 @cindex details and summary
 @cindex summary, and details
@@ -897,7 +733,7 @@ for more info on how Lisp forms are classified as safe or unsafe.
 A common organization for spreadsheets is to have a bunch of ``detail''
 rows, each perhaps describing a transaction, and then a set of
 ``summary'' rows that each show reduced data for some subset of the
-details.  @acronym{SES} supports this organization via the @code{ses-select}
+details.  SES supports this organization via the @code{ses-select}
 function.
 
 @table @code
@@ -925,7 +761,7 @@ details-and-summary spreadsheet.
 
 @c ===================================================================
 
-@node For Gurus
+@node For Gurus, Index, Advanced Features, Top
 @chapter For Gurus
 @cindex advanced features
 
@@ -934,10 +770,10 @@ details-and-summary spreadsheet.
 * Nonrelocatable references::
 * The data area::
 * Buffer-local variables in spreadsheets::
-* Uses of defadvice in @acronym{SES}::
+* Uses of defadvice in SES::
 @end menu
 
-@node Deferred updates
+@node Deferred updates, Nonrelocatable references, For Gurus, For Gurus
 @section Deferred updates
 @cindex deferred updates
 @cindex updates, deferred
@@ -962,14 +798,14 @@ progress message of the form ``Writing... (@var{nnn} cells left)''.
 These deferred cell-writes cannot be interrupted by @kbd{C-g}, so
 you'll just have to wait.
 
-@acronym{SES} uses @code{run-with-idle-timer} to move the cell underline when
+SES uses @code{run-with-idle-timer} to move the cell underline when
 Emacs will be scrolling the buffer after the end of a command, and
 also to narrow and underline after @kbd{C-x C-v}.  This is visible as
 a momentary glitch after C-x C-v and certain scrolling commands.  You
 can type ahead without worrying about the glitch.
 
 
-@node Nonrelocatable references
+@node Nonrelocatable references, The data area, Deferred updates, For Gurus
 @section Nonrelocatable references
 @cindex nonrelocatable references
 @cindex references, nonrelocatable
@@ -997,7 +833,7 @@ to get the value from the leftmost column in the current row.  This
 kind of dependency is also not recorded.
 
 
-@node The data area
+@node The data area, Buffer-local variables in spreadsheets, Nonrelocatable references, For Gurus
 @section The data area
 @cindex data area
 @findex ses-reconstruct-all
@@ -1006,14 +842,14 @@ Begins with an 014 character, followed by sets of cell-definition
 macros for each row, followed by column-widths, column-printers,
 default-printer, and header-row.  Then there's the global parameters
 (file-format ID, numrows, numcols) and the local variables (specifying
-@acronym{SES} mode for the buffer, etc.).
+SES mode for the buffer, etc.).
 
-When a @acronym{SES} file is loaded, first the numrows and numcols values are
+When a SES file is loaded, first the numrows and numcols values are
 loaded, then the entire data area is @code{eval}ed, and finally the local
 variables are processed.
 
 You can edit the data area, but don't insert or delete any newlines
-except in the local-variables part, since @acronym{SES} locates things by
+except in the local-variables part, since SES locates things by
 counting newlines.  Use @kbd{C-x C-e} at the end of a line to install
 your edits into the spreadsheet data structures (this does not update
 the print area, use, e.g., @kbd{C-c C-l} for that).
@@ -1029,7 +865,7 @@ data structures:
 @end table
 
 
-@node Buffer-local variables in spreadsheets
+@node Buffer-local variables in spreadsheets, Uses of defadvice in SES, The data area, For Gurus
 @section Buffer-local variables in spreadsheets
 @cindex buffer-local variables
 @cindex variables, buffer-local
@@ -1063,8 +899,8 @@ avoid virus warnings, each function used in a formula needs
 (put 'your-function-name 'safe-function t)
 @end lisp
 
-@node Uses of defadvice in @acronym{SES}
-@section Uses of defadvice in @acronym{SES}
+@node Uses of defadvice in SES,  , Buffer-local variables in spreadsheets, For Gurus
+@section Uses of defadvice in SES
 @cindex defadvice
 @cindex undo-more
 @cindex copy-region-as-kill
@@ -1090,79 +926,56 @@ cell.
 @end table
 
 @c ===================================================================
-@node Index
+@node Index, Acknowledgments, For Gurus, Top
 @unnumbered Index
 
 @printindex cp
 
 @c ===================================================================
 
-@node Acknowledgments
-@unnumbered Acknowledgments
+@node Acknowledgments, GNU Free Documentation License, Index, Top
+@chapter Acknowledgments
 
 Coding by:
 @quotation
-@c jyavner@@member.fsf.org
-Jonathan Yavner,
-@c monnier@@gnu.org
-Stefan Monnier,
-@c shigeru.fukaya@@gmail.com
-Shigeru Fukaya
+Jonathan Yavner @email{jyavner@@member.fsf.org}@*
+Stefan Monnier @email{monnier@@gnu.org}@*
+Shigeru Fukaya @email{shigeru.fukaya@@gmail.com}
 @end quotation
 
 @noindent
 Texinfo manual by:
 @quotation
-@c jyavner@@member.fsf.org
-Jonathan Yavner,
-@c brad@@chenla.org
-Brad Collins
+Jonathan Yavner @email{jyavner@@member.fsf.org}@*
+Brad Collins <brad@@chenla.org>
 @end quotation
 
 @noindent
 Ideas from:
 @quotation
-@c christoph.conrad@@gmx.de
-Christoph Conrad,
-@c cyberbob@@redneck.gacracker.org
-CyberBob,
-@c syver-en@@online.no
-Syver Enstad,
-@c fischman@@zion.bpnetworks.com
-Ami Fischman,
-@c Thomas.Gehrlein@@t-online.de
-Thomas Gehrlein,
-@c c.f.a.johnson@@rogers.com
-Chris F.A. Johnson,
-@c lyusong@@hotmail.com
-Yusong Li,
-@c juri@@jurta.org
-Juri Linkov,
-@c maierh@@myself.com
-Harald Maier,
-@c anash@@san.rr.com
-Alan Nash,
-@c pinard@@iro.umontreal.ca
-FranÃ§ois Pinard,
-@c ppinto@@cs.cmu.edu
-Pedro Pinto,
-@c xsteve@@riic.at
-Stefan ReichÃ¶r,
-@c epameinondas@@gmx.de
-Oliver Scholz,
-@c rms@@gnu.org
-Richard M. Stallman,
-@c teirllm@@dms.auburn.edu
-Luc Teirlinck,
-@c jotto@@pobox.com
-J. Otto Tennant,
-@c jphil@@acs.pagesjaunes.fr
-Jean-Philippe Theberge
+Christoph Conrad @email{christoph.conrad@@gmx.de}@*
+CyberBob @email{cyberbob@@redneck.gacracker.org}@*
+Syver Enstad @email{syver-en@@online.no}@*
+Ami Fischman @email{fischman@@zion.bpnetworks.com}@*
+Thomas Gehrlein @email{Thomas.Gehrlein@@t-online.de}@*
+Chris F.A. Johnson @email{c.f.a.johnson@@rogers.com}@*
+Yusong Li @email{lyusong@@hotmail.com}@*
+Juri Linkov @email{juri@@jurta.org}@*
+Harald Maier @email{maierh@@myself.com}@*
+Alan Nash @email{anash@@san.rr.com}@*
+François Pinard @email{pinard@@iro.umontreal.ca}@*
+Pedro Pinto @email{ppinto@@cs.cmu.edu}@*
+Stefan Reichör @email{xsteve@@riic.at}@*
+Oliver Scholz @email{epameinondas@@gmx.de}@*
+Richard M. Stallman @email{rms@@gnu.org}@*
+Luc Teirlinck @email{teirllm@@dms.auburn.edu}@*
+J. Otto Tennant @email{jotto@@pobox.com}@*
+Jean-Philippe Theberge @email{jphil@@acs.pagesjaunes.fr}
 @end quotation
 
 @c ===================================================================
 
-@node GNU Free Documentation License
+@node GNU Free Documentation License, , Acknowledgments, Top
 @appendix GNU Free Documentation License
 @include doclicense.texi
 

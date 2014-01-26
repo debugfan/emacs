@@ -1,6 +1,6 @@
 ;;; grep.el --- run `grep' and display the results
 
-;; Copyright (C) 1985-1987, 1993-1999, 2001-2014 Free Software
+;; Copyright (C) 1985-1987, 1993-1999, 2001-2013 Free Software
 ;; Foundation, Inc.
 
 ;; Author: Roland McGrath <roland@gnu.org>
@@ -246,7 +246,6 @@ See `compilation-error-screen-columns'"
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map compilation-minor-mode-map)
     (define-key map " " 'scroll-up-command)
-    (define-key map [?\S-\ ] 'scroll-down-command)
     (define-key map "\^?" 'scroll-down-command)
     (define-key map "\C-c\C-f" 'next-error-follow-minor-mode)
 
@@ -360,7 +359,7 @@ Notice that using \\[next-error] or \\[compile-goto-error] modifies
 	(when grep-highlight-matches
 	  (let* ((beg (match-end 0))
 		 (end (save-excursion (goto-char beg) (line-end-position)))
-		 (mbeg (text-property-any beg end 'font-lock-face grep-match-face)))
+		 (mbeg (text-property-any beg end 'font-lock-face 'match)))
 	    (when mbeg
 	      (- mbeg beg)))))
       .
@@ -368,7 +367,7 @@ Notice that using \\[next-error] or \\[compile-goto-error] modifies
 	(when grep-highlight-matches
 	  (let* ((beg (match-end 0))
 		 (end (save-excursion (goto-char beg) (line-end-position)))
-		 (mbeg (text-property-any beg end 'font-lock-face grep-match-face))
+		 (mbeg (text-property-any beg end 'font-lock-face 'match))
 		 (mend (and mbeg (next-single-property-change mbeg 'font-lock-face nil end))))
 	    (when mend
 	      (- mend beg)))))))
@@ -410,9 +409,7 @@ Notice that using \\[next-error] or \\[compile-goto-error] modifies
       (0 '(face nil compilation-message nil help-echo nil mouse-face nil) t)
       (1 grep-error-face)
       (2 grep-error-face nil t))
-     ;; "filename-linenumber-" format is used for context lines in GNU grep,
-     ;; "filename=linenumber=" for lines with function names in "git grep -p".
-     ("^.+?[-=][0-9]+[-=].*\n" (0 grep-context-face)))
+     ("^.+?-[0-9]+-.*\n" (0 grep-context-face)))
    "Additional things to highlight in grep output.
 This gets tacked on the end of the generated expressions.")
 
@@ -589,7 +586,7 @@ This function is called from `compilation-filter-hook'."
 		  'exec-plus)
 		 ((and
 		   (grep-probe find-program `(nil nil nil ,null-device "-print0"))
-		   (grep-probe xargs-program `(nil nil nil "-0" "echo")))
+		   (grep-probe xargs-program `(nil nil nil "-0" "-e" "echo")))
 		  'gnu)
 		 (t
 		  'exec))))
@@ -599,7 +596,7 @@ This function is called from `compilation-filter-hook'."
 		       ;; Windows shells need the program file name
 		       ;; after the pipe symbol be quoted if they use
 		       ;; forward slashes as directory separators.
-		       (format "%s . -type f -print0 | \"%s\" -0 %s"
+		       (format "%s . -type f -print0 | \"%s\" -0 -e %s"
 			       find-program xargs-program grep-command))
 		      ((memq grep-find-use-xargs '(exec exec-plus))
 		       (let ((cmd0 (format "%s . -type f -exec %s"
@@ -624,7 +621,7 @@ This function is called from `compilation-filter-hook'."
 				(format "%s " null-device)
 			      "")))
 		  (cond ((eq grep-find-use-xargs 'gnu)
-			 (format "%s . <X> -type f <F> -print0 | \"%s\" -0 %s"
+			 (format "%s . <X> -type f <F> -print0 | \"%s\" -0 -e %s"
 				 find-program xargs-program gcmd))
 			((eq grep-find-use-xargs 'exec)
 			 (format "%s . <X> -type f <F> -exec %s {} %s%s"
@@ -819,7 +816,12 @@ substitution string.  Note dynamic scoping of variables.")
 
 (defun grep-read-regexp ()
   "Read regexp arg for interactive grep."
-  (read-regexp "Search for" 'grep-tag-default 'grep-regexp-history))
+  (let ((default (grep-tag-default)))
+    (read-regexp
+     (concat "Search for"
+	     (if (and default (> (length default) 0))
+		 (format " (default \"%s\"): " default) ": "))
+     default 'grep-regexp-history)))
 
 (defun grep-read-files (regexp)
   "Read files arg for interactive grep."
@@ -995,10 +997,9 @@ to specify a command to run."
 		      regexp
 		      (concat (shell-quote-argument "(")
 			      " " find-name-arg " "
-			      (mapconcat
-			       #'shell-quote-argument
-			       (split-string files)
-			       (concat " -o " find-name-arg " "))
+			      (mapconcat #'shell-quote-argument
+					 (split-string files)
+					 (concat " -o " find-name-arg " "))
 			      " "
 			      (shell-quote-argument ")"))
 		      dir

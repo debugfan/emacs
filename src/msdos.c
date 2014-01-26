@@ -1,6 +1,6 @@
-/* MS-DOS specific C utilities.          -*- coding: cp850 -*-
+/* MS-DOS specific C utilities.          -*- coding: raw-text -*-
 
-Copyright (C) 1993-1997, 1999-2014 Free Software Foundation, Inc.
+Copyright (C) 1993-1997, 1999-2013 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -19,13 +19,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /* Contributed by Morten Welinder */
 /* New display, keyboard, and mouse control by Kim F. Storm */
-
-/* Note: This file MUST use a unibyte encoding, to both display the
-   keys on the non-US keyboard layout as their respective labels, and
-   provide the correct byte values for the keyboard input to inject
-   into Emacs.  See 'struct dos_keyboard_map' below.  As long as there
-   are only European keyboard layouts here, we are OK with DOS
-   codepage 850 encoding.  */
 
 /* Note: some of the stuff here was taken from end of sysdep.c in demacs. */
 
@@ -298,7 +291,7 @@ mouse_button_depressed (int b, int *xp, int *yp)
 }
 
 void
-mouse_get_pos (struct frame **f, int insist, Lisp_Object *bar_window,
+mouse_get_pos (FRAME_PTR *f, int insist, Lisp_Object *bar_window,
 	       enum scroll_bar_part *part, Lisp_Object *x, Lisp_Object *y,
 	       Time *time)
 {
@@ -408,7 +401,7 @@ static int term_setup_done;
 
 static unsigned short outside_cursor;
 
-/* The only display since MS-DOS does not support multiple ones.  */
+/* Similar to the_only_frame.  */
 struct tty_display_info the_only_display_info;
 
 /* Support for DOS/V (allows Japanese characters to be displayed on
@@ -602,7 +595,11 @@ dos_set_window_size (int *rows, int *cols)
       Lisp_Object window = hlinfo->mouse_face_window;
 
       if (! NILP (window) && XFRAME (XWINDOW (window)->frame) == f)
-	reset_mouse_highlight (hlinfo);
+	{
+	  hlinfo->mouse_face_beg_row = hlinfo->mouse_face_beg_col = -1;
+	  hlinfo->mouse_face_end_row = hlinfo->mouse_face_end_col = -1;
+	  hlinfo->mouse_face_window = Qnil;
+	}
     }
 
   /* Enable bright background colors.  */
@@ -946,6 +943,9 @@ IT_write_glyphs (struct frame *f, struct glyph *str, int str_len)
 			  Mouse Highlight (and friends..)
  ************************************************************************/
 
+/* Last window where we saw the mouse.  Used by mouse-autoselect-window.  */
+static Lisp_Object last_mouse_window;
+
 static int mouse_preempted = 0;	/* non-zero when XMenu gobbles mouse events */
 
 int
@@ -1151,7 +1151,7 @@ IT_display_cursor (int on)
    to put the cursor at the end of the text displayed there.  */
 
 static void
-IT_cmgoto (struct frame *f)
+IT_cmgoto (FRAME_PTR f)
 {
   /* Only set the cursor to where it should be if the display is
      already in sync with the window contents.  */
@@ -1222,7 +1222,7 @@ IT_cmgoto (struct frame *f)
 static void
 IT_update_begin (struct frame *f)
 {
-  struct tty_display_info *display_info = FRAME_DISPLAY_INFO (f);
+  struct tty_display_info *display_info = FRAME_X_DISPLAY_INFO (f);
   Mouse_HLInfo *hlinfo = &display_info->mouse_highlight;
   struct frame *mouse_face_frame = hlinfo->mouse_face_mouse_frame;
 
@@ -1254,7 +1254,7 @@ IT_update_begin (struct frame *f)
 	  /* If the mouse highlight is in the window that was deleted
 	     (e.g., if it was popped by completion), clear highlight
 	     unconditionally.  */
-	  if (NILP (w->contents))
+	  if (NILP (w->buffer))
 	    hlinfo->mouse_face_window = Qnil;
 	  else
 	    {
@@ -1264,14 +1264,20 @@ IT_update_begin (struct frame *f)
 		  break;
 	    }
 
-	  if (NILP (w->contents) || i < w->desired_matrix->nrows)
+	  if (NILP (w->buffer) || i < w->desired_matrix->nrows)
 	    clear_mouse_face (hlinfo);
 	}
     }
   else if (mouse_face_frame && !FRAME_LIVE_P (mouse_face_frame))
-    /* If the frame with mouse highlight was deleted, invalidate the
-       highlight info.  */
-    reset_mouse_highlight (hlinfo);
+    {
+      /* If the frame with mouse highlight was deleted, invalidate the
+	 highlight info.  */
+      hlinfo->mouse_face_beg_row = hlinfo->mouse_face_beg_col = -1;
+      hlinfo->mouse_face_end_row = hlinfo->mouse_face_end_col = -1;
+      hlinfo->mouse_face_window = Qnil;
+      hlinfo->mouse_face_deferred_gc = 0;
+      hlinfo->mouse_face_mouse_frame = NULL;
+    }
 
   unblock_input ();
 }
@@ -1279,7 +1285,7 @@ IT_update_begin (struct frame *f)
 static void
 IT_update_end (struct frame *f)
 {
-  struct tty_display_info *dpyinfo = FRAME_DISPLAY_INFO (f);
+  struct tty_display_info *dpyinfo = FRAME_X_DISPLAY_INFO (f);
 
   if (dpyinfo->termscript)
     fprintf (dpyinfo->termscript, "\n<UPDATE_END\n");
@@ -1289,10 +1295,21 @@ IT_update_end (struct frame *f)
 static void
 IT_frame_up_to_date (struct frame *f)
 {
+  Mouse_HLInfo *hlinfo = MOUSE_HL_INFO (f);
   Lisp_Object new_cursor, frame_desired_cursor;
   struct window *sw;
 
-  FRAME_MOUSE_UPDATE (f);
+  if (hlinfo->mouse_face_deferred_gc
+      || (f && f == hlinfo->mouse_face_mouse_frame))
+    {
+      block_input ();
+      if (hlinfo->mouse_face_mouse_frame)
+	note_mouse_highlight (hlinfo->mouse_face_mouse_frame,
+			      hlinfo->mouse_face_mouse_x,
+			      hlinfo->mouse_face_mouse_y);
+      hlinfo->mouse_face_deferred_gc = 0;
+      unblock_input ();
+    }
 
   /* Set the cursor type to whatever they wanted.  In a minibuffer
      window, we want the cursor to appear only if we are reading input
@@ -1309,7 +1326,7 @@ IT_frame_up_to_date (struct frame *f)
     new_cursor = frame_desired_cursor;
   else
     {
-      struct buffer *b = XBUFFER (sw->contents);
+      struct buffer *b = XBUFFER (sw->buffer);
 
       if (EQ (BVAR (b,cursor_type), Qt))
 	new_cursor = frame_desired_cursor;
@@ -1377,6 +1394,13 @@ static void
 IT_delete_glyphs (struct frame *f, int n)
 {
   emacs_abort ();
+}
+
+/* set-window-configuration on window.c needs this.  */
+void
+x_set_menu_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
+{
+  set_menu_bar_lines (f, value, oldval);
 }
 
 /* This was copied from xfaces.c  */
@@ -1534,6 +1558,11 @@ IT_reset_terminal_modes (struct terminal *term)
   startup_screen_buffer = NULL;
 
   term_setup_done = 0;
+}
+
+static void
+IT_set_terminal_window (struct frame *f, int foo)
+{
 }
 
 /* Remember the screen colors of the current frame, to serve as the
@@ -1736,7 +1765,7 @@ IT_set_frame_parameters (struct frame *f, Lisp_Object alist)
     }
 }
 
-extern void init_frame_faces (struct frame *);
+extern void init_frame_faces (FRAME_PTR);
 
 #endif /* !HAVE_X_WINDOWS */
 
@@ -1819,8 +1848,18 @@ internal_terminal_init (void)
 	  if (colors[1] >= 0 && colors[1] < 16)
 	    FRAME_BACKGROUND_PIXEL (SELECTED_FRAME ()) = colors[1];
 	}
-
-      reset_mouse_highlight (&the_only_display_info.mouse_highlight);
+      the_only_display_info.mouse_highlight.mouse_face_mouse_frame = NULL;
+      the_only_display_info.mouse_highlight.mouse_face_deferred_gc = 0;
+      the_only_display_info.mouse_highlight.mouse_face_beg_row =
+	the_only_display_info.mouse_highlight.mouse_face_beg_col = -1;
+      the_only_display_info.mouse_highlight.mouse_face_end_row =
+	the_only_display_info.mouse_highlight.mouse_face_end_col = -1;
+      the_only_display_info.mouse_highlight.mouse_face_face_id = DEFAULT_FACE_ID;
+      the_only_display_info.mouse_highlight.mouse_face_window = Qnil;
+      the_only_display_info.mouse_highlight.mouse_face_mouse_x =
+	the_only_display_info.mouse_highlight.mouse_face_mouse_y = 0;
+      the_only_display_info.mouse_highlight.mouse_face_defer = 0;
+      the_only_display_info.mouse_highlight.mouse_face_hidden = 0;
 
       if (have_mouse)	/* detected in dos_ttraw, which see */
 	{
@@ -1856,7 +1895,7 @@ initialize_msdos_display (struct terminal *term)
   term->ring_bell_hook = IT_ring_bell;
   term->reset_terminal_modes_hook = IT_reset_terminal_modes;
   term->set_terminal_modes_hook = IT_set_terminal_modes;
-  term->set_terminal_window_hook = NULL;
+  term->set_terminal_window_hook = IT_set_terminal_window;
   term->update_begin_hook = IT_update_begin;
   term->update_end_hook = IT_update_end;
   term->frame_up_to_date_hook = IT_frame_up_to_date;
@@ -1887,7 +1926,7 @@ dos_get_saved_screen (char **screen, int *rows, int *cols)
 
 /* We are not X, but we can emulate it well enough for our needs... */
 void
-check_window_system (void)
+check_x (void)
 {
   if (! FRAME_MSDOS_P (SELECTED_FRAME ()))
     error ("Not running under a window system");
@@ -1939,10 +1978,10 @@ struct dos_keyboard_map
 
 static struct dos_keyboard_map us_keyboard = {
 /* 0         1         2         3         4         5      */
-/* 01234567890123456789012345678901234567890 123 45678901234 */
-  "`1234567890-=  qwertyuiop[]   asdfghjkl;'\\  \\zxcvbnm,./  ",
+/* 01234567890123456789012345678901234567890 12345678901234 */
+  "`1234567890-=  qwertyuiop[]   asdfghjkl;'\\   zxcvbnm,./  ",
 /* 0123456789012345678901234567890123456789 012345678901234 */
-  "~!@#$%^&*()_+  QWERTYUIOP{}   ASDFGHJKL:\"|  |ZXCVBNM<>?  ",
+  "~!@#$%^&*()_+  QWERTYUIOP{}   ASDFGHJKL:\"|   ZXCVBNM<>?  ",
   0,				/* no Alt-Gr key */
   0				/* no translate table */
 };
@@ -1950,9 +1989,9 @@ static struct dos_keyboard_map us_keyboard = {
 static struct dos_keyboard_map fr_keyboard = {
 /* 0         1         2         3         4         5      */
 /* 012 3456789012345678901234567890123456789012345678901234 */
-  "˝&Ç\"'(-ä_ÄÖ)=  azertyuiop^$   qsdfghjklmó*  <wxcvbn,;:!  ",
+  "˝&Ç\",(-ä_ÄÖ)=  azertyuiop^$   qsdfghjklmó*   wxcvbnm;:!  ",
 /* 0123456789012345678901234567890123456789012345678901234 */
-  " 1234567890¯+  AZERTYUIOP˘ú   QSDFGHJKLM%Ê  >WXCVBN?./ı  ",
+  " 1234567890¯+  AZERTYUIOP˘ú   QSDFGHJKLM%Ê   WXCVBN?./ı  ",
 /* 01234567 89012345678901234567890123456789012345678901234 */
   "  ~#{[|`\\^@]}             œ                              ",
   0				/* no translate table */
@@ -1974,9 +2013,9 @@ static struct kbd_translate it_kbd_translate_table[] = {
 static struct dos_keyboard_map it_keyboard = {
 /* 0          1         2         3         4         5     */
 /* 0 123456789012345678901234567890123456789012345678901234 */
-  "\\1234567890'ç< qwertyuiopä+>  asdfghjklïÖó  <zxcvbnm,.-  ",
+  "\\1234567890'ç< qwertyuiopä+>  asdfghjklïÖó   zxcvbnm,.-  ",
 /* 01 23456789012345678901234567890123456789012345678901234 */
-  "|!\"ú$%&/()=?^> QWERTYUIOPÇ*   ASDFGHJKLá¯ı  >ZXCVBNM;:_  ",
+  "|!\"ú$%&/()=?^> QWERTYUIOPÇ*   ASDFGHJKLá¯ı   ZXCVBNM;:_  ",
 /* 0123456789012345678901234567890123456789012345678901234 */
   "        {}~`             []             @#               ",
   it_kbd_translate_table
@@ -1985,9 +2024,9 @@ static struct dos_keyboard_map it_keyboard = {
 static struct dos_keyboard_map dk_keyboard = {
 /* 0         1         2         3         4         5      */
 /* 0123456789012345678901234567890123456789012345678901234 */
-  "´1234567890+|  qwertyuiopÜ~   asdfghjklëõ'  <zxcvbnm,.-  ",
+  "´1234567890+|  qwertyuiopÜ~   asdfghjklëõ'   zxcvbnm,.-  ",
 /* 01 23456789012345678901234567890123456789012345678901234 */
-  "ı!\"#$%&/()=?`  QWERTYUIOPè^   ASDFGHJKLíù*  >ZXCVBNM;:_  ",
+  "ı!\"#$%&/()=?`  QWERTYUIOPè^   ASDFGHJKLíù*   ZXCVBNM;:_  ",
 /* 0123456789012345678901234567890123456789012345678901234 */
   "  @ú$  {[]} |                                             ",
   0				/* no translate table */
@@ -2658,10 +2697,10 @@ dos_rawgetc (void)
 	  /* Generate SELECT_WINDOW_EVENTs when needed.  */
 	  if (!NILP (Vmouse_autoselect_window))
 	    {
-	      static Lisp_Object last_mouse_window;
-
-	      mouse_window = window_from_coordinates
-		(SELECTED_FRAME (), mouse_last_x, mouse_last_y, 0, 0);
+	      mouse_window = window_from_coordinates (SELECTED_FRAME (),
+						      mouse_last_x,
+						      mouse_last_y,
+						      0, 0);
 	      /* A window will be selected only when it is not
 		 selected now, and the last mouse movement event was
 		 not in it.  A minibuffer window will be selected iff
@@ -2676,9 +2715,10 @@ dos_rawgetc (void)
 		  event.timestamp = event_timestamp ();
 		  kbd_buffer_store_event (&event);
 		}
-	      /* Remember the last window where we saw the mouse.  */
 	      last_mouse_window = mouse_window;
 	    }
+	  else
+	    last_mouse_window = Qnil;
 
 	  previous_help_echo_string = help_echo_string;
 	  help_echo_string = help_echo_object = help_echo_window = Qnil;
@@ -2948,6 +2988,11 @@ IT_menu_display (XMenu *menu, int y, int x, int pn, int *faces, int disp_help)
 }
 
 /* --------------------------- X Menu emulation ---------------------- */
+
+/* Report availability of menus.  */
+
+int
+have_menus_p (void) {  return 1; }
 
 /* Create a brand new menu structure.  */
 
@@ -3249,10 +3294,10 @@ XMenuActivate (Display *foo, XMenu *menu, int *pane, int *selidx,
      erasing it works correctly...  */
   if (! NILP (saved_echo_area_message))
     message_with_string ("%s", saved_echo_area_message, 0);
-  message1 (0);
+  message (0);
   while (statecount--)
     xfree (state[statecount].screen_behind);
-  IT_display_cursor (1);	/* Turn cursor back on.  */
+  IT_display_cursor (1);	/* turn cursor back on */
   /* Clean up any mouse events that are waiting inside Emacs event queue.
      These events are likely to be generated before the menu was even
      displayed, probably because the user pressed and released the button
@@ -3285,6 +3330,18 @@ XMenuDestroy (Display *foo, XMenu *menu)
     }
   xfree (menu);
   menu_help_message = prev_menu_help_message = NULL;
+}
+
+int
+x_pixel_width (struct frame *f)
+{
+  return FRAME_COLS (f);
+}
+
+int
+x_pixel_height (struct frame *f)
+{
+  return FRAME_LINES (f);
 }
 #endif /* !HAVE_X_WINDOWS */
 
@@ -3870,10 +3927,8 @@ croak (char *badfunc)
 /*
  * A few unimplemented functions that we silently ignore.
  */
-pid_t tcgetpgrp (int fd) { return 0; }
-int setpgid (int pid, int pgid) { return 0; }
+int setpgrp (void) {return 0; }
 int setpriority (int x, int y, int z) { return 0; }
-pid_t setsid (void) { return 0; }
 
 #if __DJGPP__ == 2 && __DJGPP_MINOR__ < 4
 ssize_t
@@ -3911,6 +3966,14 @@ careadlinkat (int fd, char const *filename,
 	buffer[len + 1] = '\0';
     }
   return buffer;
+}
+
+ssize_t
+careadlinkatcwd (int fd, char const *filename, char *buffer,
+                 size_t buffer_size)
+{
+  (void) fd;
+  return readlink (filename, buffer, buffer_size);
 }
 
 
@@ -4039,7 +4102,7 @@ dos_yield_time_slice (void)
    because wait_reading_process_output takes care of that.  */
 int
 sys_select (int nfds, SELECT_TYPE *rfds, SELECT_TYPE *wfds, SELECT_TYPE *efds,
-	    struct timespec *timeout, void *ignored)
+	    EMACS_TIME *timeout, void *ignored)
 {
   int check_input;
   struct timespec t;
@@ -4069,20 +4132,20 @@ sys_select (int nfds, SELECT_TYPE *rfds, SELECT_TYPE *wfds, SELECT_TYPE *efds,
     }
   else
     {
-      struct timespec clnow, cllast, cldiff;
+      EMACS_TIME clnow, cllast, cldiff;
 
       gettime (&t);
-      cllast = make_timespec (t.tv_sec, t.tv_nsec);
+      cllast = make_emacs_time (t.tv_sec, t.tv_nsec);
 
       while (!check_input || !detect_input_pending ())
 	{
 	  gettime (&t);
-	  clnow = make_timespec (t.tv_sec, t.tv_nsec);
-	  cldiff = timespec_sub (clnow, cllast);
-	  *timeout = timespec_sub (*timeout, cldiff);
+	  clnow = make_emacs_time (t.tv_sec, t.tv_nsec);
+	  cldiff = sub_emacs_time (clnow, cllast);
+	  *timeout = sub_emacs_time (*timeout, cldiff);
 
 	  /* Stop when timeout value crosses zero.  */
-	  if (timespec_sign (*timeout) <= 0)
+	  if (EMACS_TIME_SIGN (*timeout) <= 0)
 	    return 0;
 	  cllast = clnow;
 	  dos_yield_time_slice ();

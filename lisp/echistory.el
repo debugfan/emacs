@@ -1,6 +1,6 @@
 ;;; echistory.el --- Electric Command History Mode
 
-;; Copyright (C) 1985, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: K. Shane Hartman
 ;; Maintainer: FSF
@@ -117,6 +117,7 @@ The Command History listing is recomputed each time this mode is invoked."
 		  (save-window-excursion
 		    (list-command-history)
 		    (set-buffer "*Command History*")
+		    (Command-history-setup)
 		    (setq major-mode 'electric-command-history)
 		    (setq mode-name "Electric History")
 		    (use-local-map electric-history-map))

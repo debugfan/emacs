@@ -1,6 +1,6 @@
 ;;; semantic/db-el.el --- Semantic database extensions for Emacs Lisp
 
-;;; Copyright (C) 2002-2014 Free Software Foundation, Inc.
+;;; Copyright (C) 2002-2013 Free Software Foundation, Inc.
 
 ;; Author: Eric M. Ludlam <zappo@gnu.org>
 ;; Keywords: tags
@@ -173,17 +173,13 @@ If Emacs cannot resolve this symbol to a particular file, then return nil."
 	     (newtags (when tab (semanticdb-find-tags-by-name-method
 				 tab (semantic-tag-name tag))))
 	     (match nil))
-	;; We might not have a parsed tag in this file, because it
-	;; might be generated through a macro like defstruct.
-	(if (null newtags)
-	    (setq match tag)
-	  ;; Find the best match.
-	  (dolist (T newtags)
-	    (when (semantic-tag-similar-p T tag)
-	      (setq match T)))
-	  ;; Backup system.
-	  (when (not match)
-	    (setq match (car newtags))))
+	;; Find the best match.
+	(dolist (T newtags)
+	  (when (semantic-tag-similar-p T tag)
+	    (setq match T)))
+	;; Backup system.
+	(when (not match)
+	    (setq match (car newtags)))
 	;; Return it.
 	(when tab (cons tab match))))))
 
@@ -200,18 +196,15 @@ TOKTYPE is a hint to the type of tag desired."
   (when sym
     (cond ((and (eq toktype 'function) (fboundp sym))
 	   (require 'semantic/bovine/el)
-	   (let ((arglist (help-function-arglist sym)))
-	     (when (not (listp arglist))
-	       ;; Function might be autoloaded, in which case
-	       ;; the arglist is not available yet.
-	       (setq arglist nil))
-	     (semantic-tag-new-function
-	      (symbol-name sym)
-	      nil	;; return type
-	      (semantic-elisp-desymbolify arglist)
-	      :user-visible-flag (condition-case nil
-				     (interactive-form sym)
-				   (error nil)))))
+	   (semantic-tag-new-function
+	    (symbol-name sym)
+	    nil	;; return type
+	    (semantic-elisp-desymbolify
+	     (help-function-arglist sym)) ;; arg-list
+	    :user-visible-flag (condition-case nil
+				   (interactive-form sym)
+				 (error nil))
+	    ))
 	  ((and (eq toktype 'variable) (boundp sym))
 	   (semantic-tag-new-variable
 	    (symbol-name sym)
@@ -223,8 +216,9 @@ TOKTYPE is a hint to the type of tag desired."
 	    (symbol-name sym)
 	    "class"
 	    (semantic-elisp-desymbolify
-	     (eieio--class-public-a (class-v semanticdb-project-database))) ;; slots
-	    (semantic-elisp-desymbolify (eieio-class-parents sym)) ;; parents
+	     (aref (class-v semanticdb-project-database)
+		   class-public-a)) ;; slots
+	    (semantic-elisp-desymbolify (class-parents sym)) ;; parents
 	    ))
 	  ((not toktype)
 	   ;; Figure it out on our own.

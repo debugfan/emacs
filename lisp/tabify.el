@@ -1,6 +1,6 @@
 ;;; tabify.el --- tab conversion commands for Emacs
 
-;; Copyright (C) 1985, 1994, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1994, 2001-2013 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Package: emacs
@@ -28,17 +28,12 @@
 ;;; Code:
 
 ;;;###autoload
-(defun untabify (start end &optional _arg)
+(defun untabify (start end)
   "Convert all tabs in region to multiple spaces, preserving columns.
-If called interactively with prefix ARG, convert for the entire
-buffer.
-
 Called non-interactively, the region is specified by arguments
 START and END, rather than by the position of point and mark.
 The variable `tab-width' controls the spacing of tab stops."
-  (interactive (if current-prefix-arg
-		   (list (point-min) (point-max) current-prefix-arg)
-		 (list (region-beginning) (region-end) nil)))
+  (interactive "r")
   (let ((c (current-column)))
     (save-excursion
       (save-restriction
@@ -61,19 +56,14 @@ Usually this will be \" [ \\t]+\" to match a space followed by whitespace.
 \"^\\t* [ \\t]+\" is also useful, for tabifying only initial whitespace.")
 
 ;;;###autoload
-(defun tabify (start end &optional _arg)
+(defun tabify (start end)
   "Convert multiple spaces in region to tabs when possible.
 A group of spaces is partially replaced by tabs
 when this can be done without changing the column they end at.
-If called interactively with prefix ARG, convert for the entire
-buffer.
-
 Called non-interactively, the region is specified by arguments
 START and END, rather than by the position of point and mark.
 The variable `tab-width' controls the spacing of tab stops."
-  (interactive (if current-prefix-arg
-		   (list (point-min) (point-max) current-prefix-arg)
-		 (list (region-beginning) (region-end) nil)))
+  (interactive "r")
   (save-excursion
     (save-restriction
       ;; Include the beginning of the line in the narrowing

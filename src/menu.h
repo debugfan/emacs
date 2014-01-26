@@ -1,5 +1,5 @@
 /* Functions to manipulate menus.
-   Copyright (C) 2008-2014 Free Software Foundation, Inc.
+   Copyright (C) 2008-2013 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -35,23 +35,20 @@ extern void list_of_panes (Lisp_Object);
   || defined (HAVE_NS)
 extern void free_menubar_widget_value_tree (widget_value *);
 extern void update_submenu_strings (widget_value *);
-extern void find_and_call_menu_selection (struct frame *, int,
+extern void find_and_call_menu_selection (FRAME_PTR, int,
                                           Lisp_Object, void *);
 extern widget_value *xmalloc_widget_value (void);
 extern widget_value *digest_single_submenu (int, int, bool);
 #endif
 
 #ifdef HAVE_X_WINDOWS
-extern void mouse_position_for_popup (struct frame *f, int *x, int *y);
+extern void mouse_position_for_popup (FRAME_PTR f, int *x, int *y);
 #endif
 
-extern Lisp_Object w32_menu_show (struct frame *, int, int, int, int,
+extern Lisp_Object w32_menu_show (FRAME_PTR, int, int, int, int,
 				  Lisp_Object, const char **);
-extern Lisp_Object ns_menu_show (struct frame *, int, int, bool, bool,
+extern Lisp_Object ns_menu_show (FRAME_PTR, int, int, bool, bool,
 				 Lisp_Object, const char **);
-extern Lisp_Object xmenu_show (struct frame *, int, int, bool, bool,
-			       Lisp_Object, const char **);
-extern Lisp_Object tty_menu_show (struct frame *, int, int, bool, bool,
-				  Lisp_Object, bool, const char **);
-extern ptrdiff_t menu_item_width (const unsigned char *);
+extern Lisp_Object xmenu_show (FRAME_PTR, int, int, bool, bool,
+			       Lisp_Object, const char **, Time);
 #endif /* MENU_H */

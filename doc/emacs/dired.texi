@@ -1,5 +1,5 @@
 @c This is part of the Emacs manual.
-@c Copyright (C) 1985-1987, 1993-1995, 1997, 2000-2014 Free Software
+@c Copyright (C) 1985-1987, 1993-1995, 1997, 2000-2013 Free Software
 @c Foundation, Inc.
 @c See file emacs.texi for copying conditions.
 @node Dired
@@ -281,9 +281,9 @@ say they are backup files---that is, files whose names end in
 the backup files for deletion: all but the oldest few and newest few
 backups of any one file.  Normally, the number of newest versions kept
 for each file is given by the variable @code{dired-kept-versions}
-(@emph{not} @code{kept-new-versions}; that applies only when saving).
-The number of oldest versions to keep is given by the variable
-@code{kept-old-versions}.
+(@strong{not} @code{kept-new-versions}; that applies only when
+saving).  The number of oldest versions to keep is given by the
+variable @code{kept-old-versions}.
 
   Period with a positive numeric argument, as in @kbd{C-u 3 .},
 specifies the number of newest versions to keep, overriding
@@ -1440,18 +1440,3 @@ it onto a Dired buffer; this either moves, copies, or creates a link
 to the file in that directory.  Precisely which action is taken is
 determined by the originating program.  Dragging files out of a Dired
 buffer is currently not supported.
-
-@kindex ( @r{(Dired)}
-@c )
-@findex dired-hide-details-mode
-@vindex dired-hide-details-hide-symlink-targets
-@vindex dired-hide-details-hide-information-lines
-@cindex Hide details in Dired.
-  The command @kbd{(} (@code{dired-hide-details-mode}) toggles whether
-details, such as ownership or file permissions, are hidden.  If the
-variable @code{dired-hide-details-hide-symlink-targets} is
-non-@code{nil} then targets of symbolic links are hidden as well.  A
-non-@code{nil} value for the variable
-@code{dired-hide-details-hide-information-lines} means that all lines
-other than the header and lines containing files and directories are
-hidden.

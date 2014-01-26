@@ -1,6 +1,6 @@
 ;;; server.el --- Lisp code for GNU Emacs running as server process -*- lexical-binding: t -*-
 
-;; Copyright (C) 1986-1987, 1992, 1994-2014 Free Software Foundation,
+;; Copyright (C) 1986-1987, 1992, 1994-2013 Free Software Foundation,
 ;; Inc.
 
 ;; Author: William Sommerfeld <wesommer@athena.mit.edu>
@@ -361,7 +361,7 @@ Updates `server-clients'."
 
 (defconst server-buffer " *server*"
   "Buffer used internally by Emacs's server.
-One use is to log the I/O for debugging purposes (see option `server-log'),
+One use is to log the I/O for debugging purposes (see `server-log'),
 the other is to provide a current buffer in which the process filter can
 safely let-bind buffer-local variables like `default-directory'.")
 
@@ -369,7 +369,7 @@ safely let-bind buffer-local variables like `default-directory'.")
   "If non-nil, log the server's inputs and outputs in the `server-buffer'.")
 
 (defun server-log (string &optional client)
-  "If option `server-log' is non-nil, log STRING to `server-buffer'.
+  "If `server-log' is non-nil, log STRING to `server-buffer'.
 If CLIENT is non-nil, add a description of it to the logged message."
   (when server-log
     (with-current-buffer (get-buffer-create server-buffer)
@@ -1257,17 +1257,12 @@ The following commands are accepted by the client:
           (mapc 'funcall (nreverse commands))
 
 	  ;; If we were told only to open a new client, obey
-	  ;; `initial-buffer-choice' if it specifies a file
-          ;; or a function.
-          (unless (or files commands)
-            (let ((buf
-                   (cond ((stringp initial-buffer-choice)
-			  (find-file-noselect initial-buffer-choice))
-			 ((functionp initial-buffer-choice)
-			  (funcall initial-buffer-choice)))))
-	      (switch-to-buffer
-	       (if (buffer-live-p buf) buf (get-buffer-create "*scratch*"))
-	       'norecord)))
+	  ;; `initial-buffer-choice' if it specifies a file.
+	  (unless (or files commands)
+	    (if (stringp initial-buffer-choice)
+		(find-file initial-buffer-choice)
+	      (switch-to-buffer (get-buffer-create "*scratch*")
+				'norecord)))
 
           ;; Delete the client if necessary.
           (cond
@@ -1557,7 +1552,7 @@ be a cons cell (LINENUMBER . COLUMNNUMBER)."
 		(setq next-buffer (car (process-get proc 'buffers))))
 	      (setq rest (cdr rest)))))
 	(and next-buffer (server-switch-buffer next-buffer killed-one))
-	(unless (or next-buffer killed-one (window-dedicated-p))
+	(unless (or next-buffer killed-one (window-dedicated-p (selected-window)))
 	  ;; (switch-to-buffer (other-buffer))
 	  (message "No server buffers remain to edit")))
     (if (not (buffer-live-p next-buffer))
@@ -1584,16 +1579,16 @@ be a cons cell (LINENUMBER . COLUMNNUMBER)."
 		   (unless (frame-live-p server-window)
 		     (setq server-window (make-frame)))
 		   (select-window (frame-selected-window server-window))))
-	    (when (window-minibuffer-p)
+	    (when (window-minibuffer-p (selected-window))
 	      (select-window (next-window nil 'nomini 0)))
 	    ;; Move to a non-dedicated window, if we have one.
-	    (when (window-dedicated-p)
+	    (when (window-dedicated-p (selected-window))
 	      (select-window
 	       (get-window-with-predicate
 		(lambda (w)
 		  (and (not (window-dedicated-p w))
 		       (equal (frame-terminal (window-frame w))
-			      (frame-terminal))))
+			      (frame-terminal (selected-frame)))))
 		'nomini 'visible (selected-window))))
 	    (condition-case nil
 		(switch-to-buffer next-buffer)
@@ -1601,7 +1596,7 @@ be a cons cell (LINENUMBER . COLUMNNUMBER)."
 	      ;; a minibuffer/dedicated-window (if there's no other).
 	      (error (pop-to-buffer next-buffer)))))))
     (when server-raise-frame
-      (select-frame-set-input-focus (window-frame)))))
+      (select-frame-set-input-focus (window-frame (selected-window))))))
 
 ;;;###autoload
 (defun server-save-buffers-kill-terminal (arg)
@@ -1611,7 +1606,7 @@ With ARG non-nil, silently save all file-visiting buffers, then kill.
 
 If emacsclient was started with a list of filenames to edit, then
 only these files will be asked to be saved."
-  (let ((proc (frame-parameter nil 'client)))
+  (let ((proc (frame-parameter (selected-frame) 'client)))
     (cond ((eq proc 'nowait)
 	   ;; Nowait frames have no client buffer list.
 	   (if (cdr (frame-list))

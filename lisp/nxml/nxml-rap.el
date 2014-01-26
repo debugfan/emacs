@@ -1,6 +1,6 @@
 ;;; nxml-rap.el --- low-level support for random access parsing for nXML mode
 
-;; Copyright (C) 2003-2004, 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2003-2004, 2007-2013 Free Software Foundation, Inc.
 
 ;; Author: James Clark
 ;; Keywords: XML
@@ -69,6 +69,18 @@
 ;; typical proportion of comments, CDATA sections and processing
 ;; instructions is small relative to other things.  Secondly, to scan
 ;; we just search for the regexp <[!?].
+;;
+;; One problem is unclosed comments, processing instructions and CDATA
+;; sections.  Suppose, for example, we encounter a <!-- but there's no
+;; matching -->.  This is not an unexpected situation if the user is
+;; creating a comment. It is not helpful to treat the whole of the
+;; file starting from the <!-- onwards as a single unclosed comment
+;; token. Instead we treat just the <!-- as a piece of not well-formed
+;; markup and continue.  The problem is that if at some later stage a
+;; --> gets added to the buffer after the unclosed <!--, we will need
+;; to reparse the buffer starting from the <!--.  We need to keep
+;; track of these reparse dependencies; they are called dependent
+;; regions in the code.
 
 ;;; Code:
 
@@ -132,7 +144,8 @@ any 'inside' regions and at the beginning of a token."
   (if (>= start nxml-scan-end)
       nxml-scan-end
     (let ((inside-remove-start start)
-	  xmltok-errors)
+	  xmltok-errors
+	  xmltok-dependent-regions)
       (while (or (when (xmltok-forward-special (min end nxml-scan-end))
 		   (when (memq xmltok-type
 			       '(comment
@@ -156,7 +169,9 @@ any 'inside' regions and at the beginning of a token."
 		   (when inside-end
 		     (setq end inside-end)
 		     t))))
-      (nxml-clear-inside inside-remove-start end))
+      (nxml-clear-inside inside-remove-start end)
+      (nxml-clear-dependent-regions start end)
+      (nxml-mark-parse-dependent-regions))
     (when (> end nxml-scan-end)
       (set-marker nxml-scan-end end))
     end))
@@ -167,13 +182,62 @@ any 'inside' regions and at the beginning of a token."
 (defun nxml-scan-prolog ()
   (goto-char (point-min))
   (let (xmltok-dtd
-	xmltok-errors)
+	xmltok-errors
+	xmltok-dependent-regions)
     (setq nxml-prolog-regions (xmltok-forward-prolog))
     (setq nxml-prolog-end (point))
-    (nxml-clear-inside (point-min) nxml-prolog-end))
+    (nxml-clear-inside (point-min) nxml-prolog-end)
+    (nxml-clear-dependent-regions (point-min) nxml-prolog-end)
+    (nxml-mark-parse-dependent-regions))
   (when (< nxml-scan-end nxml-prolog-end)
     (set-marker nxml-scan-end nxml-prolog-end)))
 
+
+;;; Dependent regions
+
+(defun nxml-adjust-start-for-dependent-regions (start end pre-change-length)
+  (let ((overlays (overlays-in (1- start) start))
+	(adjusted-start start))
+    (while overlays
+      (let* ((overlay (car overlays))
+	     (ostart (overlay-start overlay)))
+	(when (and (eq (overlay-get overlay 'category) 'nxml-dependent)
+		   (< ostart adjusted-start))
+	  (let ((funargs (overlay-get overlay 'nxml-funargs)))
+	    (when (apply (car funargs)
+			 (append (list start
+				       end
+				       pre-change-length
+				       ostart
+				       (overlay-end overlay))
+				 (cdr funargs)))
+	      (setq adjusted-start ostart)))))
+      (setq overlays (cdr overlays)))
+    adjusted-start))
+
+(defun nxml-mark-parse-dependent-regions ()
+  (while xmltok-dependent-regions
+    (apply 'nxml-mark-parse-dependent-region
+	   (car xmltok-dependent-regions))
+    (setq xmltok-dependent-regions
+	  (cdr xmltok-dependent-regions))))
+
+(defun nxml-mark-parse-dependent-region (fun start end &rest args)
+  (let ((overlay (make-overlay start end nil t t)))
+    (overlay-put overlay 'category 'nxml-dependent)
+    (overlay-put overlay 'nxml-funargs (cons fun args))))
+
+(put 'nxml-dependent 'evaporate t)
+
+(defun nxml-clear-dependent-regions (start end)
+  (let ((overlays (overlays-in start end)))
+    (while overlays
+      (let* ((overlay (car overlays))
+	     (category (overlay-get overlay 'category)))
+	(when (and (eq category 'nxml-dependent)
+		   (<= start (overlay-start overlay)))
+	  (delete-overlay overlay)))
+      (setq overlays (cdr overlays)))))
 
 ;;; Random access parsing
 
@@ -222,14 +286,17 @@ Sets variables like `nxml-token-after'."
     (point)))
 
 (defun nxml-tokenize-forward ()
-  (let (xmltok-errors)
+  (let (xmltok-dependent-regions
+	xmltok-errors)
     (when (and (xmltok-forward)
 	       (> (point) nxml-scan-end))
       (cond ((memq xmltok-type '(comment
 				 cdata-section
 				 processing-instruction))
-	     (with-silent-modifications
-	       (nxml-set-inside (1+ xmltok-start) (point) xmltok-type))))
+	     (nxml-with-unmodifying-text-property-changes
+	       (nxml-set-inside (1+ xmltok-start) (point) xmltok-type)))
+	    (xmltok-dependent-regions
+	     (nxml-mark-parse-dependent-regions)))
       (set-marker nxml-scan-end (point)))
     xmltok-type))
 
@@ -237,7 +304,7 @@ Sets variables like `nxml-token-after'."
   "Move point backwards outside any 'inside' regions or tags.
 Point will not move past `nxml-prolog-end'.
 Point will either be at BOUND or a '<' character starting a tag
-outside any 'inside' regions.
+outside any 'inside' regions.  Ignores dependent regions.
 As a precondition, point must be >= BOUND."
   (nxml-move-outside-backwards)
   (when (not (equal (char-after) ?<))
@@ -264,13 +331,14 @@ Leave point unmoved if it is not inside anything special."
     (when (< nxml-scan-end pos)
       (save-excursion
 	(goto-char nxml-scan-end)
-	(let (xmltok-errors)
+	(let (xmltok-errors
+	      xmltok-dependent-regions)
 	  (while (when (xmltok-forward-special pos)
 		   (when (memq xmltok-type
 			       '(comment
 				 processing-instruction
 				 cdata-section))
-		     (with-silent-modifications
+		     (nxml-with-unmodifying-text-property-changes
 		       (nxml-set-inside (1+ xmltok-start)
 					(point)
 					xmltok-type)))
@@ -278,6 +346,8 @@ Leave point unmoved if it is not inside anything special."
 		       t
 		     (setq pos (point))
 		     nil)))
+	  (nxml-clear-dependent-regions nxml-scan-end pos)
+	  (nxml-mark-parse-dependent-regions)
 	  (set-marker nxml-scan-end pos))))))
 
 ;;; Element scanning
@@ -402,8 +472,13 @@ expected `%s'"
 (defun nxml-scan-error (&rest args)
   (signal 'nxml-scan-error args))
 
-(define-error 'nxml-scan-error
-  "Scan over element that is not well-formed" 'nxml-error)
+(put 'nxml-scan-error
+     'error-conditions
+     '(error nxml-error nxml-scan-error))
+
+(put 'nxml-scan-error
+     'error-message
+     "Scan over element that is not well-formed")
 
 (provide 'nxml-rap)
 

@@ -1,6 +1,6 @@
-;;; em-dirs.el --- directory navigation commands  -*- lexical-binding:t -*-
+;;; em-dirs.el --- directory navigation commands
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -207,8 +207,7 @@ Thus, this does not include the current directory.")
   (when eshell-cd-on-directory
     (make-local-variable 'eshell-interpreter-alist)
     (setq eshell-interpreter-alist
-	  (cons (cons #'(lambda (file args)
-                          (eshell-lone-directory-p file))
+	  (cons (cons 'eshell-lone-directory-p
 		      'eshell-dirs-substitute-cd)
 		eshell-interpreter-alist)))
 

@@ -1,5 +1,5 @@
 /* Composite sequence support.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
      National Institute of Advanced Industrial Science and Technology (AIST)
      Registration Number H14PRO021
@@ -23,6 +23,8 @@ You should have received a copy of the GNU General Public License
 along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <config.h>
+
+#define COMPOSITE_INLINE EXTERN_INLINE
 
 #include "lisp.h"
 #include "character.h"
@@ -158,6 +160,10 @@ static Lisp_Object Qauto_composition_function;
    auto-compositions.  */
 #define MAX_AUTO_COMPOSITION_LOOKBACK 3
 
+/* Temporary variable used in macros COMPOSITION_XXX.  */
+Lisp_Object composition_temp;
+
+
 /* Return COMPOSITION-ID of a composition at buffer position
    CHARPOS/BYTEPOS and length NCHARS.  The `composition' property of
    the sequence is PROP.  STRING, if non-nil, is a string that
@@ -228,7 +234,7 @@ get_composition_id (ptrdiff_t charpos, ptrdiff_t bytepos, ptrdiff_t nchars,
     key = components;
   else if (NILP (components))
     {
-      key = make_uninit_vector (nchars);
+      key = Fmake_vector (make_number (nchars), Qnil);
       if (STRINGP (string))
 	for (i = 0; i < nchars; i++)
 	  {
@@ -472,11 +478,11 @@ run_composition_function (ptrdiff_t from, ptrdiff_t to, Lisp_Object prop)
      valid too.  */
   if (from > BEGV
       && find_composition (from - 1, -1, &start, &end, &prop, Qnil)
-      && !composition_valid_p (start, end, prop))
+      && !COMPOSITION_VALID_P (start, end, prop))
     from = start;
   if (to < ZV
       && find_composition (to, -1, &start, &end, &prop, Qnil)
-      && !composition_valid_p (start, end, prop))
+      && !COMPOSITION_VALID_P (start, end, prop))
     to = end;
   if (!NILP (Ffboundp (func)))
     call2 (func, make_number (from), make_number (to));
@@ -518,7 +524,7 @@ update_compositions (ptrdiff_t from, ptrdiff_t to, int check_mask)
 	 latter to the copy of it.  */
       if (from > BEGV
 	  && find_composition (from - 1, -1, &start, &end, &prop, Qnil)
-	  && composition_valid_p (start, end, prop))
+	  && COMPOSITION_VALID_P (start, end, prop))
 	{
 	  min_pos = start;
 	  if (end > to)
@@ -532,7 +538,7 @@ update_compositions (ptrdiff_t from, ptrdiff_t to, int check_mask)
 	}
       else if (from < ZV
 	       && find_composition (from, -1, &start, &from, &prop, Qnil)
-	       && composition_valid_p (start, from, prop))
+	       && COMPOSITION_VALID_P (start, from, prop))
 	{
 	  if (from > to)
 	    max_pos = from;
@@ -547,7 +553,7 @@ update_compositions (ptrdiff_t from, ptrdiff_t to, int check_mask)
          (to - 1).  */
       while (from < to - 1
 	     && find_composition (from, to, &start, &from, &prop, Qnil)
-	     && composition_valid_p (start, from, prop)
+	     && COMPOSITION_VALID_P (start, from, prop)
 	     && from < to - 1)
 	run_composition_function (start, from, prop);
     }
@@ -556,7 +562,7 @@ update_compositions (ptrdiff_t from, ptrdiff_t to, int check_mask)
     {
       if (from < to
 	  && find_composition (to - 1, -1, &start, &end, &prop, Qnil)
-	  && composition_valid_p (start, end, prop))
+	  && COMPOSITION_VALID_P (start, end, prop))
 	{
 	  /* TO should be also at composition boundary.  But,
 	     insertion or deletion will make two compositions adjacent
@@ -574,7 +580,7 @@ update_compositions (ptrdiff_t from, ptrdiff_t to, int check_mask)
 	}
       else if (to < ZV
 	       && find_composition (to, -1, &start, &end, &prop, Qnil)
-	       && composition_valid_p (start, end, prop))
+	       && COMPOSITION_VALID_P (start, end, prop))
 	{
 	  run_composition_function (start, end, prop);
 	  max_pos = end;
@@ -589,7 +595,7 @@ update_compositions (ptrdiff_t from, ptrdiff_t to, int check_mask)
       specbind (Qinhibit_point_motion_hooks, Qt);
       Fremove_list_of_text_properties (make_number (min_pos),
 				       make_number (max_pos),
-				       list1 (Qauto_composed), Qnil);
+				       Fcons (Qauto_composed, Qnil), Qnil);
       unbind_to (count, Qnil);
     }
 }
@@ -636,7 +642,13 @@ compose_text (ptrdiff_t start, ptrdiff_t end, Lisp_Object components,
 		       Qcomposition, prop, string);
 }
 
-/* Lisp glyph-string handlers.  */
+
+static Lisp_Object autocmp_chars (Lisp_Object, ptrdiff_t, ptrdiff_t,
+                                  ptrdiff_t, struct window *,
+                                  struct face *, Lisp_Object);
+
+
+/* Lisp glyph-string handlers */
 
 /* Hash table for automatic composition.  The key is a header of a
    lgstring (Lispy glyph-string), and the value is a body of a
@@ -664,7 +676,7 @@ composition_gstring_put_cache (Lisp_Object gstring, ptrdiff_t len)
   ptrdiff_t i;
 
   header = LGSTRING_HEADER (gstring);
-  hash = h->test.hashfn (&h->test, header);
+  hash = h->hashfn (h, header);
   if (len < 0)
     {
       ptrdiff_t j, glyph_len = LGSTRING_GLYPH_LEN (gstring);
@@ -674,6 +686,7 @@ composition_gstring_put_cache (Lisp_Object gstring, ptrdiff_t len)
       len = j;
     }
 
+  lint_assume (len <= TYPE_MAXIMUM (ptrdiff_t) - 2);
   copy = Fmake_vector (make_number (len + 2), Qnil);
   LGSTRING_SET_HEADER (copy, Fcopy_sequence (header));
   for (i = 0; i < len; i++)
@@ -690,6 +703,10 @@ composition_gstring_from_id (ptrdiff_t id)
 
   return HASH_VALUE (h, id);
 }
+
+static Lisp_Object fill_gstring_header (Lisp_Object, Lisp_Object,
+                                        Lisp_Object, Lisp_Object,
+                                        Lisp_Object);
 
 bool
 composition_gstring_p (Lisp_Object gstring)
@@ -780,8 +797,7 @@ static Lisp_Object gstring_work;
 static Lisp_Object gstring_work_headers;
 
 static Lisp_Object
-fill_gstring_header (Lisp_Object header, Lisp_Object start, Lisp_Object end,
-		     Lisp_Object font_object, Lisp_Object string)
+fill_gstring_header (Lisp_Object header, Lisp_Object start, Lisp_Object end, Lisp_Object font_object, Lisp_Object string)
 {
   ptrdiff_t from, to, from_byte;
   ptrdiff_t len, i;
@@ -821,7 +837,7 @@ fill_gstring_header (Lisp_Object header, Lisp_Object start, Lisp_Object end,
       if (len <= 8)
 	header = AREF (gstring_work_headers, len - 1);
       else
-	header = make_uninit_vector (len + 1);
+	header = Fmake_vector (make_number (len + 1), Qnil);
     }
 
   ASET (header, 0, font_object);
@@ -889,12 +905,10 @@ fill_gstring_body (Lisp_Object gstring)
    object.  Otherwise return nil.  */
 
 static Lisp_Object
-autocmp_chars (Lisp_Object rule, ptrdiff_t charpos, ptrdiff_t bytepos,
-	       ptrdiff_t limit, struct window *win, struct face *face,
-	       Lisp_Object string)
+autocmp_chars (Lisp_Object rule, ptrdiff_t charpos, ptrdiff_t bytepos, ptrdiff_t limit, struct window *win, struct face *face, Lisp_Object string)
 {
   ptrdiff_t count = SPECPDL_INDEX ();
-  struct frame *f = XFRAME (win->frame);
+  FRAME_PTR f = XFRAME (win->frame);
   Lisp_Object pos = make_number (charpos);
   ptrdiff_t to;
   ptrdiff_t pt = PT, pt_byte = PT_BYTE;
@@ -921,7 +935,7 @@ autocmp_chars (Lisp_Object rule, ptrdiff_t charpos, ptrdiff_t bytepos,
 #ifdef HAVE_WINDOW_SYSTEM
   if (FRAME_WINDOW_P (f))
     {
-      font_object = font_range (charpos, bytepos, &to, win, face, string);
+      font_object = font_range (charpos, &to, win, face, string);
       if (! FONT_OBJECT_P (font_object)
 	  || (! NILP (re)
 	      && to < limit
@@ -1005,7 +1019,7 @@ composition_compute_stop_pos (struct composition_it *cmp_it, ptrdiff_t charpos, 
   if (charpos < endpos
       && find_composition (charpos, endpos, &start, &end, &prop, string)
       && start >= charpos
-      && composition_valid_p (start, end, prop))
+      && COMPOSITION_VALID_P (start, end, prop))
     {
       cmp_it->stop_pos = endpos = start;
       cmp_it->ch = -1;
@@ -1191,7 +1205,7 @@ composition_compute_stop_pos (struct composition_it *cmp_it, ptrdiff_t charpos, 
 
 /* Check if the character at CHARPOS (and BYTEPOS) is composed
    (possibly with the following characters) on window W.  ENDPOS limits
-   characters to be composed.  FACE, if non-NULL, is a base face of
+   characters to be composed.  FACE, in non-NULL, is a base face of
    the character.  If STRING is not nil, it is a string containing the
    character to check, and CHARPOS and BYTEPOS are indices in the
    string.  In that case, FACE must not be NULL.
@@ -1368,7 +1382,7 @@ composition_update_it (struct composition_it *cmp_it, ptrdiff_t charpos, ptrdiff
     }
   else
     {
-      /* Automatic composition.  */
+      /* automatic composition */
       Lisp_Object gstring = composition_gstring_from_id (cmp_it->id);
       Lisp_Object glyph;
       ptrdiff_t from;
@@ -1412,7 +1426,7 @@ composition_update_it (struct composition_it *cmp_it, ptrdiff_t charpos, ptrdiff
       cmp_it->width = 0;
       for (i = cmp_it->nchars - 1; i >= 0; i--)
 	{
-	  c = XINT (LGSTRING_CHAR (gstring, from + i));
+	  c = XINT (LGSTRING_CHAR (gstring, i));
 	  cmp_it->nbytes += CHAR_BYTES (c);
 	  cmp_it->width += CHAR_WIDTH (c);
 	}
@@ -1665,7 +1679,7 @@ composition_adjust_point (ptrdiff_t last_pt, ptrdiff_t new_pt)
 
   /* At first check the static composition. */
   if (get_property_and_range (new_pt, Qcomposition, &val, &beg, &end, Qnil)
-      && composition_valid_p (beg, end, val))
+      && COMPOSITION_VALID_P (beg, end, val))
     {
       if (beg < new_pt /* && end > new_pt   <- It's always the case.  */
 	  && (last_pt <= beg || last_pt >= end))
@@ -1865,12 +1879,14 @@ See `find-composition' for more details.  */)
 	  && (e <= XINT (pos) ? e > end : s < start))
 	return list3 (make_number (s), make_number (e), gstring);
     }
-  if (!composition_valid_p (start, end, prop))
-    return list3 (make_number (start), make_number (end), Qnil);
+  if (!COMPOSITION_VALID_P (start, end, prop))
+    return Fcons (make_number (start), Fcons (make_number (end),
+					      Fcons (Qnil, Qnil)));
   if (NILP (detail_p))
-    return list3 (make_number (start), make_number (end), Qt);
+    return Fcons (make_number (start), Fcons (make_number (end),
+					      Fcons (Qt, Qnil)));
 
-  if (composition_registered_p (prop))
+  if (COMPOSITION_REGISTERD_P (prop))
     id = COMPOSITION_ID (prop);
   else
     {
@@ -1883,14 +1899,17 @@ See `find-composition' for more details.  */)
   if (id >= 0)
     {
       Lisp_Object components, relative_p, mod_func;
-      enum composition_method method = composition_method (prop);
+      enum composition_method method = COMPOSITION_METHOD (prop);
       int width = composition_table[id]->width;
 
       components = Fcopy_sequence (COMPOSITION_COMPONENTS (prop));
       relative_p = (method == COMPOSITION_WITH_RULE_ALTCHARS
 		    ? Qnil : Qt);
       mod_func = COMPOSITION_MODIFICATION_FUNC (prop);
-      tail = list4 (components, relative_p, mod_func, make_number (width));
+      tail = Fcons (components,
+		    Fcons (relative_p,
+			   Fcons (mod_func,
+				  Fcons (make_number (width), Qnil))));
     }
   else
     tail = Qnil;
@@ -1939,7 +1958,7 @@ syms_of_composite (void)
   }
 
   staticpro (&gstring_work_headers);
-  gstring_work_headers = make_uninit_vector (8);
+  gstring_work_headers = Fmake_vector (make_number (8), Qnil);
   for (i = 0; i < 8; i++)
     ASET (gstring_work_headers, i, Fmake_vector (make_number (i + 2), Qnil));
   staticpro (&gstring_work);

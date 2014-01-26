@@ -1,6 +1,6 @@
 ;;; image-dired.el --- use dired to browse and manipulate your images
 ;;
-;; Copyright (C) 2005-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2013 Free Software Foundation, Inc.
 ;;
 ;; Version: 0.4.11
 ;; Keywords: multimedia
@@ -156,9 +156,8 @@
 (require 'format-spec)
 (require 'widget)
 
-(require 'cl-lib)
-
 (eval-when-compile
+  (require 'cl-lib)
   (require 'wid-edit))
 
 (defgroup image-dired nil
@@ -658,12 +657,9 @@ previous -ARG, if ARG<0) files."
                 (string-match-p (image-file-name-regexp) image-file))
        (setq thumb-file (image-dired-get-thumbnail-image image-file))
        ;; If image is not already added, then add it.
-       (let* ((cur-ovs (overlays-in (point) (1+ (point))))
-              (thumb-ov (car (cl-remove-if-not
-                              (lambda (ov) (overlay-get ov 'thumb-file))
-                              cur-ovs))))
-         (if thumb-ov
-             (delete-overlay thumb-ov)
+       (let ((cur-ov (overlays-in (point) (1+ (point)))))
+         (if cur-ov
+             (delete-overlay (car cur-ov))
 	   (put-image thumb-file image-pos)
 	   (setq overlay
                  (cl-loop for o in (overlays-in (point) (1+ (point)))
@@ -881,13 +877,13 @@ displayed."
         (progn
           (image-dired-display-thumbs)
           (pop-to-buffer image-dired-thumbnail-buffer))
-      (message "Canceled."))))
+      (message "Cancelled."))))
 
 ;;;###autoload
 (defalias 'image-dired 'image-dired-show-all-from-dir)
 
 ;;;###autoload
-(define-obsolete-function-alias 'tumme 'image-dired "24.4")
+(defalias 'tumme 'image-dired-show-all-from-dir)
 
 (defun image-dired-sane-db-file ()
   "Check if `image-dired-db-file' exists.
@@ -1039,14 +1035,16 @@ With prefix argument ARG, remove tag from file at point."
 See documentation for `image-dired-toggle-movement-tracking'.
 Interactive use only useful if `image-dired-track-movement' is nil."
   (interactive)
-  (let* ((dired-buf (image-dired-associated-dired-buffer))
-         (file-name (image-dired-original-file-name))
-         (window (image-dired-get-buffer-window dired-buf)))
-    (and (buffer-live-p dired-buf) file-name
-         (with-current-buffer dired-buf
-           (if (not (dired-goto-file file-name))
-               (message "Could not track file")
-             (if window (set-window-point window (point))))))))
+  (let ((old-buf (current-buffer))
+        (dired-buf (image-dired-associated-dired-buffer))
+        (file-name (image-dired-original-file-name)))
+    (when (and (buffer-live-p dired-buf) file-name)
+      (set-buffer dired-buf)
+      (if (not (dired-goto-file file-name))
+          (message "Could not track file")
+        (set-window-point
+         (image-dired-get-buffer-window dired-buf) (point)))
+      (set-buffer old-buf))))
 
 (defun image-dired-toggle-movement-tracking ()
   "Turn on and off `image-dired-track-movement'.
@@ -1063,22 +1061,24 @@ position in the other buffer."
 This is almost the same as what `image-dired-track-original-file' does,
 but the other way around."
   (let ((file (dired-get-filename))
-        prop-val found window)
+        (old-buf (current-buffer))
+        prop-val found)
     (when (get-buffer image-dired-thumbnail-buffer)
-      (with-current-buffer image-dired-thumbnail-buffer
-        (goto-char (point-min))
-        (while (and (not (eobp))
-                    (not found))
-          (if (and (setq prop-val
-                         (get-text-property (point) 'original-file-name))
-                   (string= prop-val file))
-              (setq found t))
-          (if (not found)
-              (forward-char 1)))
-        (when found
-          (if (setq window (image-dired-thumbnail-window))
-              (set-window-point window (point)))
-          (image-dired-display-thumb-properties))))))
+      (set-buffer image-dired-thumbnail-buffer)
+      (goto-char (point-min))
+      (while (and (not (eobp))
+                  (not found))
+        (if (and (setq prop-val
+                       (get-text-property (point) 'original-file-name))
+                 (string= prop-val file))
+            (setq found t))
+        (if (not found)
+            (forward-char 1)))
+      (when found
+        (set-window-point
+         (image-dired-thumbnail-window) (point))
+        (image-dired-display-thumb-properties))
+      (set-buffer old-buf))))
 
 (defun image-dired-dired-next-line (&optional arg)
   "Call `dired-next-line', then track thumbnail.
@@ -2453,8 +2453,6 @@ when using per-directory thumbnail file storage"))
 
 (defvar image-dired-widget-list nil
   "List to keep track of meta data in edit buffer.")
-
-(declare-function widget-forward "wid-edit" (arg))
 
 ;;;###autoload
 (defun image-dired-dired-edit-comment-and-tags ()

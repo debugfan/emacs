@@ -1,5 +1,5 @@
 ;;; epa-file.el --- the EasyPG Assistant, transparent file encryption -*- lexical-binding: t -*-
-;; Copyright (C) 2006-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2013 Free Software Foundation, Inc.
 
 ;; Author: Daiki Ueno <ueno@unixuser.org>
 ;; Keywords: PGP, GnuPG
@@ -29,11 +29,9 @@
   "If non-nil, cache passphrase for symmetric encryption.
 
 For security reasons, this option is turned off by default and
-not recommended to use.  Instead, consider using gpg-agent which
-does the same job in a safer way.  See Info node `(epa) Caching
-Passphrases' for more information.
-
-Note that this option has no effect if you use GnuPG 2.0."
+not recommended to use.  Instead, consider using public-key
+encryption with gpg-agent which does the same job in a safer
+way."
   :type 'boolean
   :group 'epa-file)
 
@@ -132,7 +130,6 @@ encryption is used."
 	    (error)))
 	 (local-file (or local-copy file))
 	 (context (epg-make-context))
-         (buf (current-buffer))
 	 string length entry)
     (if visit
 	(setq buffer-file-name file))
@@ -158,16 +155,16 @@ encryption is used."
 	     ;; where `find-file-not-found-functions' are called in
 	     ;; `find-file-noselect-1'.
 	     (when (file-exists-p local-file)
-	       (setq-local epa-file-error error)
+	       (make-local-variable 'epa-file-error)
+	       (setq epa-file-error error)
 	       (add-hook 'find-file-not-found-functions
 			 'epa-file--find-file-not-found-function
 			 nil t))
 	     (signal 'file-error
 		     (cons "Opening input file" (cdr error)))))
-          (set-buffer buf) ;In case timer/filter changed/killed it (bug#16029)!
-	  (setq-local epa-file-encrypt-to
-                      (mapcar #'car (epg-context-result-for
-                                     context 'encrypted-to)))
+	  (make-local-variable 'epa-file-encrypt-to)
+	  (setq epa-file-encrypt-to
+		(mapcar #'car (epg-context-result-for context 'encrypted-to)))
 	  (if (or beg end)
 	      (setq string (substring string (or beg 0) end)))
 	  (save-excursion
@@ -211,8 +208,7 @@ encryption is used."
 	 (recipients
 	  (cond
 	   ((listp epa-file-encrypt-to) epa-file-encrypt-to)
-	   ((stringp epa-file-encrypt-to) (list epa-file-encrypt-to))))
-	 buffer)
+	   ((stringp epa-file-encrypt-to) (list epa-file-encrypt-to)))))
     (epg-context-set-passphrase-callback
      context
      (cons #'epa-file-passphrase-callback-function
@@ -231,18 +227,8 @@ encryption is used."
 		 (unless start
 		   (setq start (point-min)
 			 end (point-max)))
-		 (setq buffer (current-buffer))
-		 (with-temp-buffer
-		   (insert-buffer-substring buffer start end)
-		   ;; Translate the region according to
-		   ;; `buffer-file-format', as `write-region' would.
-		   ;; We can't simply do `write-region' (into a
-		   ;; temporary file) here, since it writes out
-		   ;; decrypted contents.
-		   (format-encode-buffer (with-current-buffer buffer
-					   buffer-file-format))
-		   (epa-file--encode-coding-string (buffer-string)
-						   coding-system)))
+		 (epa-file--encode-coding-string (buffer-substring start end)
+						 coding-system))
 	       (if (or (eq epa-file-select-keys t)
 		       (and (null epa-file-select-keys)
 			    (not (local-variable-p 'epa-file-encrypt-to
@@ -280,13 +266,14 @@ If no one is selected, symmetric encryption will be performed.  "
 (defun epa-file-select-keys ()
   "Select recipients for encryption."
   (interactive)
-  (setq-local epa-file-encrypt-to
-              (mapcar
-               (lambda (key)
-                 (epg-sub-key-id (car (epg-key-sub-key-list key))))
-               (epa-select-keys
-                (epg-make-context)
-                "Select recipients for encryption.
+  (make-local-variable 'epa-file-encrypt-to)
+  (setq epa-file-encrypt-to
+	(mapcar
+	 (lambda (key)
+	   (epg-sub-key-id (car (epg-key-sub-key-list key))))
+	(epa-select-keys
+	 (epg-make-context)
+	 "Select recipients for encryption.
 If no one is selected, symmetric encryption will be performed.  "))))
 
 ;;;###autoload

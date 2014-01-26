@@ -1,6 +1,6 @@
 ;;; ediff-init.el --- Macros, variables, and defsubsts used by Ediff
 
-;; Copyright (C) 1994-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1994-2013 Free Software Foundation, Inc.
 
 ;; Author: Michael Kifer <kifer@cs.stonybrook.edu>
 ;; Package: ediff
@@ -810,7 +810,7 @@ TYPE-OF-EMACS is either 'xemacs or 'emacs."
   (ediff-overlay-put extent 'face face)
   (ediff-overlay-put extent 'help-echo 'ediff-region-help-echo))
 
-(defun ediff-region-help-echo (extent-or-window &optional overlay _point)
+(defun ediff-region-help-echo (extent-or-window &optional overlay point)
   (unless overlay
     (setq overlay extent-or-window))
   (let ((is-current (ediff-overlay-get overlay 'ediff))
@@ -1768,7 +1768,7 @@ Unless optional argument INPLACE is non-nil, return a new string."
   (or n (setq n ediff-current-difference))
   (and (>= n 0) (< n ediff-number-of-differences)))
 
-(defsubst ediff-show-all-diffs (_n)
+(defsubst ediff-show-all-diffs (n)
   "Don't skip difference regions."
   nil)
 

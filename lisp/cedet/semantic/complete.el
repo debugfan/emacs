@@ -1,6 +1,6 @@
 ;;; semantic/complete.el --- Routines for performing tag completion
 
-;; Copyright (C) 2003-2005, 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2003-2005, 2007-2013 Free Software Foundation, Inc.
 
 ;; Author: Eric M. Ludlam <zappo@gnu.org>
 ;; Keywords: syntax
@@ -678,8 +678,7 @@ a reasonable distance."
 	    ;;(message "Inline Hook installed, but overlay deleted.")
 	    (semantic-complete-inline-exit))
 	;; Exit if commands caused us to exit the area of interest
-	(let ((os (semantic-overlay-get semantic-complete-inline-overlay 'semantic-original-start))
-	      (s (semantic-overlay-start semantic-complete-inline-overlay))
+	(let ((s (semantic-overlay-start semantic-complete-inline-overlay))
 	      (e (semantic-overlay-end semantic-complete-inline-overlay))
 	      (b (semantic-overlay-buffer semantic-complete-inline-overlay))
 	      (txt nil)
@@ -687,10 +686,8 @@ a reasonable distance."
 	  (cond
 	   ;; EXIT when we are no longer in a good place.
 	   ((or (not (eq b (current-buffer)))
-		(< (point) s)
-		(< (point) os)
-		(> (point) e)
-		)
+		(<= (point) s)
+		(> (point) e))
 	    ;;(message "Exit: %S %S %S" s e (point))
 	    (semantic-complete-inline-exit)
 	    )
@@ -713,6 +710,7 @@ a reasonable distance."
 	   (t
 	    ;; Else, show completions now
 	    (semantic-complete-inline-force-display)
+
 	    ))))
     ;; If something goes terribly wrong, clean up after ourselves.
     (error (semantic-complete-inline-exit))))
@@ -763,10 +761,6 @@ END is at the end of the current symbol being completed."
   (semantic-overlay-put semantic-complete-inline-overlay
 			'window-config-start
 			(current-window-configuration))
-  ;; Save the original start.  We need to exit completion if START
-  ;; moves.
-  (semantic-overlay-put semantic-complete-inline-overlay
-			'semantic-original-start start)
   ;; Install our command hooks
   (add-hook 'pre-command-hook 'semantic-complete-pre-command-hook)
   (add-hook 'post-command-hook 'semantic-complete-post-command-hook)
@@ -988,17 +982,14 @@ Calculate the cache if there isn't one."
   "Calculate the completions for prefix from completionlist.
 Output must be in semanticdb Find result format."
   ;; Must output in semanticdb format
-  (unless completionlist
-    (setq completionlist
-	  (or (oref obj cache)
-	      (semantic-collector-calculate-cache obj))))
   (let ((table (with-current-buffer (oref obj buffer)
 		 semanticdb-current-table))
 	(result (semantic-find-tags-for-completion
 		 prefix
 		 ;; To do this kind of search with a pre-built completion
 		 ;; list, we need to strip it first.
-		 (semanticdb-strip-find-results completionlist))))
+		 (semanticdb-strip-find-results completionlist)))
+	)
     (if result
 	(list (cons table result)))))
 
@@ -1180,7 +1171,7 @@ These collectors track themselves on a per-buffer basis."
   (let ((old nil)
 	(bl semantic-collector-per-buffer-list))
     (while (and bl (null old))
-      (if (eq (eieio-object-class (car bl)) this)
+      (if (eq (object-class (car bl)) this)
 	  (setq old (car bl))))
     (unless old
       (let ((new (call-next-method)))
@@ -1519,7 +1510,7 @@ one in the source buffer."
 	  (insert (semantic-format-tag-summarize tag nil t) "\n\n")
 	  (when table
 	    (insert "From table: \n")
-	    (insert (eieio-object-name table) "\n\n"))
+	    (insert (object-name table) "\n\n"))
 	  (when buf
 	    (insert "In buffer: \n\n")
 	    (insert (format "%S" buf)))
@@ -1634,8 +1625,6 @@ Display mechanism using tooltip for a list of possible completions.")
     (error nil))
   )
 
-(defvar tooltip-mode)
-
 (defmethod semantic-displayor-show-request ((obj semantic-displayor-tooltip))
   "A request to show the current tags table."
   (if (or (not (featurep 'tooltip)) (not tooltip-mode))
@@ -1669,7 +1658,7 @@ Display mechanism using tooltip for a list of possible completions.")
 	  (setq msg "...")))
        ((eq mode 'verbose)
 	;; Always show extended match set.
-	(oset obj max-tags-initial semantic-displayor-tooltip-max-tags)
+	(oset obj max-tags semantic-displayor-tooltip-max-tags)
 	(setq max-tags semantic-displayor-tooltip-max-tags)))
       (unless msg
 	(oset obj shown t)
@@ -1718,23 +1707,15 @@ Display mechanism using tooltip for a list of possible completions.")
   "Return the location of POINT as positioned on the selected frame.
 Return a cons cell (X . Y)"
   (let* ((frame (selected-frame))
-	 (toolbarleft
-	  (if (eq (cdr (assoc 'tool-bar-position default-frame-alist)) 'left)
-	      (tool-bar-pixel-width)
-	    0))
-	 (left (+ (or (car-safe (cdr-safe (frame-parameter frame 'left)))
-		      (frame-parameter frame 'left))
-		  toolbarleft))
-	 (top (or (car-safe (cdr-safe (frame-parameter frame 'top)))
+	 (left (or (car-safe (cdr-safe (frame-parameter frame 'left)))
+		   (frame-parameter frame 'left)))
+         (top (or (car-safe (cdr-safe (frame-parameter frame 'top)))
 		  (frame-parameter frame 'top)))
 	 (point-pix-pos (posn-x-y (posn-at-point)))
 	 (edges (window-inside-pixel-edges (selected-window))))
     (cons (+ (car point-pix-pos) (car edges) left)
           (+ (cdr point-pix-pos) (cadr edges) top))))
 
-
-(defvar tooltip-frame-parameters)
-(declare-function tooltip-show "tooltip" (text &optional use-echo-area))
 
 (defun semantic-displayor-tooltip-show (text)
   "Display a tooltip with TEXT near cursor."
@@ -1973,7 +1954,7 @@ completion works."
 	 (complst nil))
     (when (and thissym (or (not (string= thissym ""))
 			   nextsym))
-      ;; Do a quick calculation of completions.
+      ;; Do a quick calcuation of completions.
       (semantic-collector-calculate-completions
        collector thissym nil)
       ;; Get the master list
@@ -2053,7 +2034,7 @@ completion works."
 	 (complst nil))
     (when (and thissym (or (not (string= thissym ""))
 			   nextsym))
-      ;; Do a quick calculation of completions.
+      ;; Do a quick calcuation of completions.
       (semantic-collector-calculate-completions
        collector thissym nil)
       ;; Get the master list

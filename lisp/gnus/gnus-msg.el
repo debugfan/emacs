@@ -1,6 +1,6 @@
 ;;; gnus-msg.el --- mail and post interface for Gnus
 
-;; Copyright (C) 1995-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1995-2013 Free Software Foundation, Inc.
 
 ;; Author: Masanobu UMEDA <umerin@flab.flab.fujitsu.junet>
 ;;	Lars Magne Ingebrigtsen <larsi@gnus.org>
@@ -415,11 +415,6 @@ Thank you for your help in stamping out bugs.
      (gnus-inews-make-draft-meta-information
       ,(gnus-group-decoded-name gnus-newsgroup-name) ',articles)))
 
-(autoload 'nnir-article-number "nnir" nil nil 'macro)
-(autoload 'nnir-article-group "nnir" nil nil 'macro)
-(autoload 'gnus-nnir-group-p "nnir")
-
-
 (defvar gnus-article-reply nil)
 (defmacro gnus-setup-message (config &rest forms)
   (let ((winconf (make-symbol "gnus-setup-message-winconf"))
@@ -431,24 +426,15 @@ Thank you for your help in stamping out bugs.
     `(let ((,winconf (current-window-configuration))
 	   (,winconf-name gnus-current-window-configuration)
 	   (,buffer (buffer-name (current-buffer)))
-	   (,article (if (and (gnus-nnir-group-p gnus-newsgroup-name)
-			      gnus-article-reply)
-			 (nnir-article-number (or (car-safe gnus-article-reply)
-						  gnus-article-reply))
-		       gnus-article-reply))
+	   (,article gnus-article-reply)
 	   (,yanked gnus-article-yanked-articles)
-	   (,group (if (and (gnus-nnir-group-p gnus-newsgroup-name)
-			    gnus-article-reply)
-		       (nnir-article-group (or (car-safe gnus-article-reply)
-					       gnus-article-reply))
-		     gnus-newsgroup-name))
+	   (,group gnus-newsgroup-name)
 	   (message-header-setup-hook
 	    (copy-sequence message-header-setup-hook))
 	   (mbl mml-buffer-list)
 	   (message-mode-hook (copy-sequence message-mode-hook)))
        (setq mml-buffer-list nil)
-       (add-hook 'message-header-setup-hook (lambda ()
-					      (gnus-inews-insert-gcc ,group)))
+       (add-hook 'message-header-setup-hook 'gnus-inews-insert-gcc)
        ;; message-newsreader and message-mailer were formerly set in
        ;; gnus-inews-add-send-actions, but this is too late when
        ;; message-generate-headers-first is used. --ansel
@@ -540,8 +526,7 @@ instead."
 	(message-mail to subject other-headers continue
 		      nil yank-action send-actions return-action))
     (let ((buf (current-buffer))
-	  ;; Don't use posting styles corresponding to any existing group.
-	  (gnus-newsgroup-name "")
+	  (gnus-newsgroup-name (or gnus-newsgroup-name ""))
 	  mail-buf)
       (gnus-setup-message 'message
 	(message-mail to subject other-headers continue
@@ -922,7 +907,6 @@ header line with the old Message-ID."
       (with-current-buffer article-buffer
 	(let ((gnus-newsgroup-charset (or gnus-article-charset
 					  gnus-newsgroup-charset))
-	      (inhibit-read-only t)
 	      (gnus-newsgroup-ignored-charsets
 	       (or gnus-article-ignored-charsets
 		   gnus-newsgroup-ignored-charsets)))
@@ -1134,9 +1118,7 @@ See the variable `gnus-user-agent'."
 	   (gnus-v
 	    (when (memq 'gnus gnus-user-agent)
 	      (concat "Gnus/"
-		      (gnus-replace-in-string
-		       (format "%1.8f" (gnus-continuum-version gnus-version))
-		       "0+\\'" "")
+		      (prin1-to-string (gnus-continuum-version gnus-version) t)
 		      " (" gnus-version ")")))
 	   (emacs-v (gnus-emacs-version)))
       (concat gnus-v (when (and gnus-v emacs-v) " ")
@@ -1724,8 +1706,7 @@ this is a reply."
          (group (when group (gnus-group-decoded-name group)))
          (var (or gnus-outgoing-message-group gnus-message-archive-group))
 	 (gcc-self-val
-	  (and group (not (gnus-virtual-group-p group))
-	       (gnus-group-find-parameter group 'gcc-self)))
+	  (and group (gnus-group-find-parameter group 'gcc-self)))
 	 result
 	 (groups
 	  (cond
@@ -1764,8 +1745,7 @@ this is a reply."
 	      (setq var (cdr var)))
 	    result)))
 	 name)
-    (when (and (or groups gcc-self-val)
-	       (gnus-alive-p))
+    (when (or groups gcc-self-val)
       (when (stringp groups)
 	(setq groups (list groups)))
       (save-excursion

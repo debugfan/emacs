@@ -1,6 +1,6 @@
 ;;; refill.el --- `auto-fill' by refilling paragraphs on changes
 
-;; Copyright (C) 2000-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2000-2013 Free Software Foundation, Inc.
 
 ;; Author: Dave Love <fx@gnu.org>
 ;; Maintainer: Miles Bader <miles@gnu.org>
@@ -83,10 +83,9 @@
 
 ;;; Code:
 
-;; Unused.
-;;; (defgroup refill nil
-;;;   "Refilling paragraphs on changes."
-;;;   :group 'fill)
+(defgroup refill nil
+  "Refilling paragraphs on changes."
+  :group 'fill)
 
 (defvar refill-ignorable-overlay nil
   "Portion of the most recently filled paragraph not needing filling.
@@ -223,8 +222,7 @@ characters only cause refilling if they would cause
 auto-filling.
 
 For true \"word wrap\" behavior, use `visual-line-mode' instead."
-  ;; Not global, so no effect.
-;;;  :group 'refill
+  :group 'refill
   :lighter " Refill"
   :keymap '(("\177" . backward-delete-char-untabify))
   ;; Remove old state if necessary

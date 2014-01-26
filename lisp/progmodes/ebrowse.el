@@ -1,6 +1,6 @@
 ;;; ebrowse.el --- Emacs C++ class browser & tags facility
 
-;; Copyright (C) 1992-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1992-2013 Free Software Foundation, Inc.
 
 ;; Author: Gerd Moellmann <gerd@gnu.org>
 ;; Maintainer: FSF
@@ -33,12 +33,12 @@
 
 ;;; Code:
 
-(require 'cl-lib)
 (require 'easymenu)
 (require 'view)
 (require 'ebuff-menu)
 
 (eval-when-compile
+  (require 'cl-lib)
   (require 'helper))
 
 
@@ -231,6 +231,19 @@ Compare items with `eq' or TEST if specified."
 	       (setq found i list nil))
 	     (setq list (cdr list) i (1+ i)))))
     found))
+
+
+(defun ebrowse-delete-if-not (predicate list)
+  "Remove elements not satisfying PREDICATE from LIST and return the result.
+This is a destructive operation."
+  (let (result)
+    (while list
+      (let ((next (cdr list)))
+	(when (funcall predicate (car list))
+	  (setq result (nconc result list))
+	  (setf (cdr list) nil))
+	(setq list next)))
+    result))
 
 
 (defmacro ebrowse-output (&rest body)
@@ -1297,17 +1310,17 @@ With PREFIX, insert that many filenames."
 
 (defun ebrowse-browser-buffer-list ()
   "Return a list of all tree or member buffers."
-  (cl-delete-if-not 'ebrowse-buffer-p (buffer-list)))
+  (ebrowse-delete-if-not 'ebrowse-buffer-p (buffer-list)))
 
 
 (defun ebrowse-member-buffer-list ()
   "Return a list of all member buffers."
-  (cl-delete-if-not 'ebrowse-member-buffer-p (buffer-list)))
+  (ebrowse-delete-if-not 'ebrowse-member-buffer-p (buffer-list)))
 
 
 (defun ebrowse-tree-buffer-list ()
   "Return a list of all tree buffers."
-  (cl-delete-if-not 'ebrowse-tree-buffer-p (buffer-list)))
+  (ebrowse-delete-if-not 'ebrowse-tree-buffer-p (buffer-list)))
 
 
 (defun ebrowse-known-class-trees-buffer-list ()
@@ -1328,7 +1341,7 @@ one buffer.  Prefer tree buffers over member buffers."
 
 (defun ebrowse-same-tree-member-buffer-list ()
   "Return a list of members buffers with same tree as current buffer."
-  (cl-delete-if-not
+  (ebrowse-delete-if-not
    (lambda (buffer)
      (eq (buffer-local-value 'ebrowse--tree buffer)
 	 ebrowse--tree))
@@ -1605,7 +1618,7 @@ specifies where to find/view the result."
   ;; Get the source file to view or find.
   (setf file (ebrowse-find-source-file file tags-file))
   ;; If current window is dedicated, use another frame.
-  (when (window-dedicated-p)
+  (when (window-dedicated-p (selected-window))
     (setf where 'other-window))
   (cond (view
 	 (setf ebrowse-temp-position-to-view struc

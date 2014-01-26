@@ -1,6 +1,6 @@
 ;;; semantic/analyze/fcn.el --- Analyzer support functions.
 
-;; Copyright (C) 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2013 Free Software Foundation, Inc.
 
 ;; Author: Eric M. Ludlam <zappo@gnu.org>
 
@@ -165,10 +165,7 @@ SCOPE is the scope object with additional items in which to search for names."
 The TYPE field in a tag can be nil (return nil)
 or a string, or a non-positional tag."
   (cond ((semantic-tag-p type)
-	 (if (semantic-tag-named-parent type)
-	     (semantic-analyze-unsplit-name `(,(semantic-tag-named-parent type)
-					      ,(semantic-tag-name type)))
-	   (semantic-tag-name type)))
+	 (semantic-tag-name type))
 	((stringp type)
 	 type)
 	((listp type)
@@ -248,8 +245,6 @@ used by the analyzer debugger."
 	  (semantic-scope-set-typecache scope nil)
 	  )))))
 
-(autoload 'semantic-tag-similar-p "semantic/tag-ls")
-
 (defun semantic-analyze-dereference-metatype-stack (type scope &optional type-declaration)
   "Dereference metatypes repeatedly until we hit a real TYPE.
 Uses `semantic-analyze-dereference-metatype'.
@@ -260,7 +255,7 @@ Optional argument TYPE-DECLARATION is how TYPE was found referenced."
 	(nexttype (semantic-analyze-dereference-metatype type scope type-declaration))
 	(idx 0))
     (catch 'metatype-recursion
-      (while (and nexttype (not (semantic-tag-similar-p (car nexttype) lasttype)))
+      (while (and nexttype (not (eq (car nexttype) lasttype)))
 	(setq lasttype (car nexttype)
 	      lasttypedeclaration (cadr nexttype))
 	(setq nexttype (semantic-analyze-dereference-metatype lasttype scope lasttypedeclaration))

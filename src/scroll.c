@@ -1,6 +1,6 @@
 /* Calculate what line insertion or deletion to do, and do it
 
-Copyright (C) 1985-1986, 1990, 1993-1994, 2001-2014 Free Software
+Copyright (C) 1985-1986, 1990, 1993-1994, 2001-2013 Free Software
 Foundation, Inc.
 
 This file is part of GNU Emacs.
@@ -86,7 +86,7 @@ static void do_scrolling (struct frame *,
    new contents appears.  */
 
 static void
-calculate_scrolling (struct frame *frame,
+calculate_scrolling (FRAME_PTR frame,
 		     /* matrix is of size window_size + 1 on each side.  */
 		     struct matrix_elt *matrix,
 		     int window_size, int lines_below,
@@ -246,8 +246,9 @@ do_scrolling (struct frame *frame, struct glyph_matrix *current_matrix,
   struct matrix_elt *p;
   int i, j, k;
 
-  /* True if we have set a terminal window with set_terminal_window.  */
-  bool terminal_window_p = 0;
+  /* Set to 1 if we have set a terminal window with
+     set_terminal_window.  It's unsigned to work around GCC bug 48228.  */
+  unsigned int terminal_window_p = 0;
 
   /* A queue for line insertions to be done.  */
   struct queue { int count, pos; };
@@ -422,7 +423,7 @@ do_scrolling (struct frame *frame, struct glyph_matrix *current_matrix,
    is the equivalent of draw_cost for the old line contents */
 
 static void
-calculate_direct_scrolling (struct frame *frame,
+calculate_direct_scrolling (FRAME_PTR frame,
 			    /* matrix is of size window_size + 1 on each side.  */
 			    struct matrix_elt *matrix,
 			    int window_size, int lines_below,
@@ -652,19 +653,22 @@ do_direct_scrolling (struct frame *frame, struct glyph_matrix *current_matrix,
 
   /* A queue of deletions and insertions to be performed.  */
   struct alt_queue { int count, pos, window; };
-  struct alt_queue *queue_start = alloca (window_size * sizeof *queue_start);
+  struct alt_queue *queue_start = (struct alt_queue *)
+    alloca (window_size * sizeof *queue_start);
   struct alt_queue *queue = queue_start;
 
-  /* True if a terminal window has been set with set_terminal_window.  */
-  bool terminal_window_p = 0;
+  /* Set to 1 if a terminal window has been set with
+     set_terminal_window: */
+  int terminal_window_p = 0;
 
-  /* If true, a write has been selected, allowing either an insert or a
-     delete to be selected next.  If false, a delete cannot be selected
+  /* A nonzero value of write_follows indicates that a write has been
+     selected, allowing either an insert or a delete to be selected
+     next.  When write_follows is zero, a delete cannot be selected
      unless j < i, and an insert cannot be selected unless i < j.
      This corresponds to a similar restriction (with the ordering
      reversed) in calculate_direct_scrolling, which is intended to
      ensure that lines marked as inserted will be blank. */
-  bool write_follows_p = 1;
+  int write_follows_p = 1;
 
   /* For each row in the new matrix what row of the old matrix it is.  */
   int *copy_from = alloca (window_size * sizeof *copy_from);
@@ -792,12 +796,13 @@ do_direct_scrolling (struct frame *frame, struct glyph_matrix *current_matrix,
 
 
 void
-scrolling_1 (struct frame *frame, int window_size, int unchanged_at_top,
+scrolling_1 (FRAME_PTR frame, int window_size, int unchanged_at_top,
 	     int unchanged_at_bottom, int *draw_cost, int *old_draw_cost,
 	     int *old_hash, int *new_hash, int free_at_end)
 {
-  struct matrix_elt *matrix
-    = alloca ((window_size + 1) * (window_size + 1) * sizeof *matrix);
+  struct matrix_elt *matrix;
+  matrix = ((struct matrix_elt *)
+	    alloca ((window_size + 1) * (window_size + 1) * sizeof *matrix));
 
   if (FRAME_SCROLL_REGION_OK (frame))
     {
@@ -881,7 +886,7 @@ scrolling_max_lines_saved (int start, int end,
    overhead and multiply factor values */
 
 static void
-line_ins_del (struct frame *frame, int ov1, int pf1, int ovn, int pfn,
+line_ins_del (FRAME_PTR frame, int ov1, int pf1, int ovn, int pfn,
               register int *ov, register int *mf)
 {
   register int i;
@@ -899,7 +904,7 @@ line_ins_del (struct frame *frame, int ov1, int pf1, int ovn, int pfn,
 }
 
 static void
-ins_del_costs (struct frame *frame,
+ins_del_costs (FRAME_PTR frame,
 	       const char *one_line_string, const char *multi_string,
 	       const char *setup_string, const char *cleanup_string,
 	       int *costvec, int *ncostvec,
@@ -955,7 +960,7 @@ ins_del_costs (struct frame *frame,
  */
 
 void
-do_line_insertion_deletion_costs (struct frame *frame,
+do_line_insertion_deletion_costs (FRAME_PTR frame,
 				  const char *ins_line_string,
 				  const char *multi_ins_string,
 				  const char *del_line_string,

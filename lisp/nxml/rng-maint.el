@@ -1,6 +1,6 @@
 ;;; rng-maint.el --- commands for RELAX NG maintainers
 
-;; Copyright (C) 2003, 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2003, 2007-2013 Free Software Foundation, Inc.
 
 ;; Author: James Clark
 ;; Keywords: XML, RelaxNG
@@ -259,7 +259,7 @@
 (defun rng-validate-buffer ()
   (save-restriction
     (widen)
-    (with-silent-modifications
+    (nxml-with-unmodifying-text-property-changes
       (rng-clear-cached-state (point-min) (point-max)))
     ;; 1+ to clear empty overlays at (point-max)
     (rng-clear-overlays (point-min) (1+ (point-max))))

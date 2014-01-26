@@ -1,6 +1,6 @@
 ;;; reveal.el --- Automatically reveal hidden text at point -*- lexical-binding: t -*-
 
-;; Copyright (C) 2000-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2000-2013 Free Software Foundation, Inc.
 
 ;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Keywords: outlines
@@ -72,26 +72,27 @@ Each element has the form (WINDOW . OVERLAY).")
   ;; - we only refresh spots in the current window.
   ;; FIXME: do we actually know that (current-buffer) = (window-buffer) ?
   (with-local-quit
-    (with-demoted-errors "Reveal: %s"
-      (let ((old-ols
-             (delq nil
-                   (mapcar
-                    (lambda (x)
-                      ;; We refresh any spot in the current window as well
-                      ;; as any spots associated with a dead window or
-                      ;; a window which does not show this buffer any more.
-                      (cond
-                       ((eq (car x) (selected-window)) (cdr x))
-                       ((not (and (window-live-p (car x))
-                                  (eq (window-buffer (car x)) (current-buffer))))
-                        ;; Adopt this since it's owned by a window that's
-                        ;; either not live or at least not showing this
-                        ;; buffer any more.
-                        (setcar x (selected-window))
-                        (cdr x))))
-                    reveal-open-spots))))
-        (setq old-ols (reveal-open-new-overlays old-ols))
-        (reveal-close-old-overlays old-ols)))))
+    (condition-case err
+        (let ((old-ols
+               (delq nil
+                     (mapcar
+                      (lambda (x)
+                        ;; We refresh any spot in the current window as well
+                        ;; as any spots associated with a dead window or
+                        ;; a window which does not show this buffer any more.
+                        (cond
+                         ((eq (car x) (selected-window)) (cdr x))
+                         ((not (and (window-live-p (car x))
+                                    (eq (window-buffer (car x)) (current-buffer))))
+                          ;; Adopt this since it's owned by a window that's
+                          ;; either not live or at least not showing this
+                          ;; buffer any more.
+                          (setcar x (selected-window))
+                          (cdr x))))
+                      reveal-open-spots))))
+          (setq old-ols (reveal-open-new-overlays old-ols))
+          (reveal-close-old-overlays old-ols))
+      (error (message "Reveal: %s" err)))))
 
 (defun reveal-open-new-overlays (old-ols)
   (let ((repeat t))

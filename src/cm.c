@@ -1,5 +1,5 @@
 /* Cursor motion subroutines for GNU Emacs.
-   Copyright (C) 1985, 1995, 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1995, 2001-2013 Free Software Foundation, Inc.
     based primarily on public domain code written by Chris Torek
 
 This file is part of GNU Emacs.
@@ -28,7 +28,8 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "termchar.h"
 #include "tparam.h"
 
-#define	BIG	9999		/* Good on 32-bit hosts.  */
+#define	BIG	9999		/* 9999 good on VAXen.  For 16 bit machines
+				   use about 2000.... */
 
 int cost;		/* sums up costs */
 
@@ -214,7 +215,7 @@ calccost (struct tty_display_info *tty,
     if (doit)
       do
           emacs_tputs (tty, p, 1, cmputc);
-      while (--deltay > 0);
+      while (0 < --deltay);
 x:
     if ((deltax = dstx - srcx) == 0)
 	goto done;
@@ -297,7 +298,7 @@ fail:
     if (doit)
       do
           emacs_tputs (tty, p, 1, cmputc);
-      while (--deltax > 0);
+      while (0 < --deltax);
 done:
     return totalcost;
 }

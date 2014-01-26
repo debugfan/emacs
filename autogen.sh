@@ -1,10 +1,9 @@
 #!/bin/sh
 ### autogen.sh - tool to help build Emacs from a bzr checkout
 
-## Copyright (C) 2011-2014 Free Software Foundation, Inc.
+## Copyright (C) 2011-2013 Free Software Foundation, Inc.
 
 ## Author: Glenn Morris <rgm@gnu.org>
-## Maintainer: FSF
 
 ## This file is part of GNU Emacs.
 
@@ -26,7 +25,7 @@
 ## The Emacs bzr repository does not include the configure script
 ## (and associated helpers).  The first time you fetch Emacs from bzr,
 ## run this script to generate the necessary files.
-## For more details, see the file INSTALL.REPO.
+## For more details, see the file INSTALL.BZR.
 
 ### Code:
 
@@ -106,7 +105,7 @@ check_version ()
 
 cat <<EOF
 Checking whether you have the necessary tools...
-(Read INSTALL.REPO for more details on building Emacs)
+(Read INSTALL.BZR for more details on building Emacs)
 
 EOF
 
@@ -191,6 +190,13 @@ script has made an error, then you can simply run
 autoreconf -i -I m4
 
 instead of this script.
+
+If all else fails, you can try using the pre-built versions of the
+generated files by doing:
+
+./autogen/copy_autogen
+
+This is not recommended - see the comments in \`copy_autogen'.
 
 Please report any problems with this script to bug-gnu-emacs@gnu.org .
 EOF

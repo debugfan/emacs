@@ -1,6 +1,6 @@
 ;;; reftex-cite.el --- creating citations with RefTeX
 
-;; Copyright (C) 1997-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1997-2013 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <dominik@science.uva.nl>
 ;; Maintainer: auctex-devel@gnu.org
@@ -25,16 +25,18 @@
 ;;; Code:
 
 (eval-when-compile (require 'cl))
-
+(provide 'reftex-cite)
 (require 'reftex)
+;;;
 
-;;; Variables and constants
-(defvar reftex-cite-regexp-hist nil
-  "The history list of regular expressions used for citations")
+;; Variables and constants
 
+;; The history list of regular expressions used for citations
+(defvar reftex-cite-regexp-hist nil)
+
+;; Prompt and help string for citation selection
 (defconst reftex-citation-prompt
-  "Select: [n]ext [p]revious [r]estrict [ ]full_entry [q]uit RET [?]Help+more"
-  "Prompt and help string for citation selection")
+  "Select: [n]ext [p]revious [r]estrict [ ]full_entry [q]uit RET [?]Help+more")
 
 (defconst reftex-citation-help
   " n / p      Go to next/previous entry (Cursor motion works as well).
@@ -49,7 +51,8 @@
  e / E      Create BibTeX file with all (marked/unmarked) entries
  a / A      Put all (marked) entries into one/many \\cite commands.")
 
-;;; Find bibtex files
+;; Find bibtex files
+
 (defmacro reftex-with-special-syntax-for-bib (&rest body)
   `(let ((saved-syntax (syntax-table)))
      (unwind-protect
@@ -59,8 +62,8 @@
        (set-syntax-table saved-syntax))))
 
 (defun reftex-default-bibliography ()
-  "Return the expanded value of variable `reftex-default-bibliography'.
-The expanded value is cached."
+  ;; Return the expanded value of `reftex-default-bibliography'.
+  ;; The expanded value is cached.
   (unless (eq (get 'reftex-default-bibliography :reftex-raw)
               reftex-default-bibliography)
     (put 'reftex-default-bibliography :reftex-expanded
@@ -71,8 +74,9 @@ The expanded value is cached."
   (get 'reftex-default-bibliography :reftex-expanded))
 
 (defun reftex-bib-or-thebib ()
-  "Test if BibTeX or \begin{thebibliography} should be used for the citation.
-Find the bof of the current file"
+  ;; Tests if BibTeX or \begin{thebibliography} should be used for the
+  ;; citation
+  ;; Find the bof of the current file
   (let* ((docstruct (symbol-value reftex-docstruct-symbol))
          (rest (or (member (list 'bof (buffer-file-name)) docstruct)
                    docstruct))
@@ -90,11 +94,11 @@ Find the bof of the current file"
       (if thebib 'thebib nil))))
 
 (defun reftex-get-bibfile-list ()
-  "Return list of bibfiles for current document.
-When using the chapterbib or bibunits package you should either
-use the same database files everywhere, or separate parts using
-different databases into different files (included into the mater file).
-Then this function will return the applicable database files."
+  ;; Return list of bibfiles for current document.
+  ;; When using the chapterbib or bibunits package you should either
+  ;; use the same database files everywhere, or separate parts using
+  ;; different databases into different files (included into the mater file).
+  ;; Then this function will return the applicable database files.
 
   ;; Ensure access to scanning info
   (reftex-access-scan-info)
@@ -111,14 +115,16 @@ Then this function will return the applicable database files."
    (cdr (assq 'bib (symbol-value reftex-docstruct-symbol)))
    (error "\\bibliography statement missing or .bib files not found")))
 
-;;; Find a certain reference in any of the BibTeX files.
+;; Find a certain reference in any of the BibTeX files.
+
 (defun reftex-pop-to-bibtex-entry (key file-list &optional mark-to-kill
                                        highlight item return)
-  "Find BibTeX KEY in any file in FILE-LIST in another window.
-If MARK-TO-KILL is non-nil, mark new buffer to kill.
-If HIGHLIGHT is non-nil, highlight the match.
-If ITEM in non-nil, search for bibitem instead of database entry.
-If RETURN is non-nil, just return the entry and restore point."
+  ;; Find BibTeX KEY in any file in FILE-LIST in another window.
+  ;; If MARK-TO-KILL is non-nil, mark new buffer to kill.
+  ;; If HIGHLIGHT is non-nil, highlight the match.
+  ;; If ITEM in non-nil, search for bibitem instead of database entry.
+  ;; If RETURN is non-nil, just return the entry and restore point.
+
   (let* ((re
           (if item
               (concat "\\\\bibitem[ \t]*\\(\\[[^]]*\\]\\)?[ \t]*{"
@@ -172,11 +178,12 @@ If RETURN is non-nil, just return the entry and restore point."
           (progn (forward-list 1) (point)))
       (error (min (point-max) (+ 300 (point)))))))
 
-;;; Parse bibtex buffers
+;; Parse bibtex buffers
+
 (defun reftex-extract-bib-entries (buffers)
-  "Extract bib entries which match regexps from BUFFERS.
-BUFFERS is a list of buffers or file names.
-Return list with entries."
+  ;; Extract bib entries which match regexps from BUFFERS.
+  ;; BUFFERS is a list of buffers or file names.
+  ;; Return list with entries."
   (let* (re-list first-re rest-re
                  (buffer-list (if (listp buffers) buffers (list buffers)))
                  found-list entry buffer1 buffer alist
@@ -302,8 +309,6 @@ Return list with entries."
      (t found-list))))
 
 (defun reftex-bib-sort-author (e1 e2)
-  "Compare bib entries E1 and E2 by author.
-The name of the first different author/editor is used."
   (let ((al1 (reftex-get-bib-names "author" e1))
         (al2 (reftex-get-bib-names "author" e2)))
     (while (and al1 al2 (string= (car al1) (car al2)))
@@ -315,17 +320,15 @@ The name of the first different author/editor is used."
       (not (stringp (car al1))))))
 
 (defun reftex-bib-sort-year (e1 e2)
-  "Compare bib entries E1 and E2 by year in ascending order."
   (< (string-to-number (or (cdr (assoc "year" e1)) "0"))
      (string-to-number (or (cdr (assoc "year" e2)) "0"))))
 
 (defun reftex-bib-sort-year-reverse (e1 e2)
-  "Compare bib entries E1 and E2 by year in descending order."
   (> (string-to-number (or (cdr (assoc "year" e1)) "0"))
      (string-to-number (or (cdr (assoc "year" e2)) "0"))))
 
 (defun reftex-get-crossref-alist (entry)
-  "Return the alist from a crossref ENTRY."
+  ;; return the alist from a crossref entry
   (let ((crkey (cdr (assoc "crossref" entry)))
         start)
     (save-excursion
@@ -344,9 +347,10 @@ The name of the first different author/editor is used."
 
 ;; Parse the bibliography environment
 (defun reftex-extract-bib-entries-from-thebibliography (files)
-  "Extract bib-entries from the \begin{thebibliography} environment.
-Parsing is not as good as for the BibTeX database stuff.
-The environment should be located in FILES."
+  ;; Extract bib-entries from the \begin{thebibliography} environment.
+  ;; Parsing is not as good as for the BibTeX database stuff.
+  ;; The environment should be located in file FILE.
+
   (let* (start end buf entries re re-list file default)
     (unless files
       (error "Need file name to find thebibliography environment"))
@@ -426,8 +430,8 @@ The environment should be located in FILES."
     entries))
 
 (defun reftex-get-bibkey-default ()
-  "Return the word before the cursor.
-If the cursor is in a citation macro, return the word before the macro."
+  ;; Return the word before the cursor.  If the cursor is in a
+  ;; citation macro, return the word before the macro.
   (let* ((macro (reftex-what-macro 1)))
     (save-excursion
       (if (and macro (string-match "cite" (car macro)))
@@ -435,10 +439,10 @@ If the cursor is in a citation macro, return the word before the macro."
       (skip-chars-backward "^a-zA-Z0-9")
       (reftex-this-word))))
 
-;;; Parse and format individual entries
+;; Parse and format individual entries
+
 (defun reftex-get-bib-names (field entry)
-  "Return a list with the author or editor names in ENTRY.
-If FIELD is empty try \"editor\" field."
+  ;; Return a list with the author or editor names in ENTRY
   (let ((names (reftex-get-bib-field field entry)))
     (if (equal "" names)
         (setq names (reftex-get-bib-field "editor" entry)))
@@ -453,9 +457,7 @@ If FIELD is empty try \"editor\" field."
     (split-string names "\n")))
 
 (defun reftex-parse-bibtex-entry (entry &optional from to raw)
-  "Parse BibTeX ENTRY.
-If ENTRY is nil then parse the entry in current buffer between FROM and TO.
-If RAW is non-nil, keep double quotes/curly braces delimiting fields."
+  ; if RAW is non-nil, keep double quotes/curly braces delimiting fields
   (let (alist key start field)
     (save-excursion
       (save-restriction
@@ -512,12 +514,17 @@ If RAW is non-nil, keep double quotes/curly braces delimiting fields."
           ;; remove extra whitespace
           (while (string-match "[\n\t\r]\\|[ \t][ \t]+" field)
             (setq field (replace-match " " nil t field)))
+          ;; remove leading garbage
+          (if (string-match (if raw "^[ \t]+" "^[ \t{]+") field)
+              (setq field (replace-match "" nil t field)))
+          ;; remove trailing garbage
+          (if (string-match (if raw "[ \t]+$" "[ \t}]+$") field)
+              (setq field (replace-match "" nil t field)))
           (push (cons key field) alist))))
     alist))
 
 (defun reftex-get-bib-field (fieldname entry &optional format)
-  "Extract the field FIELDNAME from ENTRY.
-If FORMAT is non-nil `format' entry accordingly."
+  ;; Extract the field FIELDNAME from an ENTRY
   (let ((cell (assoc fieldname entry)))
     (if cell
         (if format
@@ -526,7 +533,7 @@ If FORMAT is non-nil `format' entry accordingly."
       "")))
 
 (defun reftex-format-bib-entry (entry)
-  "Format a BibTeX ENTRY so that it is nice to look at."
+  ;; Format a BibTeX ENTRY so that it is nice to look at
   (let*
       ((auth-list (reftex-get-bib-names "author" entry))
        (authors (mapconcat 'identity auth-list ", "))
@@ -569,7 +576,7 @@ If FORMAT is non-nil `format' entry accordingly."
     (concat key "\n     " authors " " year " " extra "\n     " title "\n\n")))
 
 (defun reftex-parse-bibitem (item)
-  "Parse a \bibitem entry in ITEM."
+  ;; Parse a \bibitem entry
   (let ((key "") (text ""))
     (when (string-match "\\`{\\([^}]+\\)}\\([^\000]*\\)" item)
       (setq key (match-string 1 item)
@@ -585,7 +592,7 @@ If FORMAT is non-nil `format' entry accordingly."
      (cons "&entry" (concat key " " text)))))
 
 (defun reftex-format-bibitem (item)
-  "Format a \bibitem entry in ITEM so that it is (relatively) nice to look at."
+  ;; Format a \bibitem entry so that it is (relatively) nice to look at.
   (let ((text (reftex-get-bib-field "&text" item))
         (key  (reftex-get-bib-field "&key" item))
         (lines nil))
@@ -602,7 +609,7 @@ If FORMAT is non-nil `format' entry accordingly."
       (put-text-property 0 (length text) 'face reftex-bib-author-face text))
     (concat key "\n     " text "\n\n")))
 
-;;; Make a citation
+;; Make a citation
 
 ;;;###autoload
 (defun reftex-citation (&optional no-insert format-key)
@@ -626,6 +633,7 @@ The regular expression uses an expanded syntax: && is interpreted as `and'.
 Thus, `aaaa&&bbb' matches entries which contain both `aaaa' and `bbb'.
 While entering the regexp, completion on knows citation keys is possible.
 `=' is a good regular expression to match all entries in all files."
+
   (interactive)
 
   ;; check for recursive edit
@@ -643,7 +651,8 @@ While entering the regexp, completion on knows citation keys is possible.
     (reftex-kill-temporary-buffers)))
 
 (defun reftex-do-citation (&optional arg no-insert format-key)
-  "This really does the work of `reftex-citation'."
+  ;; This really does the work of reftex-citation.
+
   (let* ((format (reftex-figure-out-cite-format arg no-insert format-key))
          (docstruct-symbol reftex-docstruct-symbol)
          (selected-entries (reftex-offer-bib-menu))
@@ -740,8 +749,8 @@ While entering the regexp, completion on knows citation keys is possible.
     (mapcar 'car selected-entries)))
 
 (defun reftex-figure-out-cite-format (arg &optional no-insert format-key)
-  "Check if there is already a cite command at point and change cite format
-in order to only add another reference in the same cite command."
+  ;; Check if there is already a cite command at point and change cite format
+  ;; in order to only add another reference in the same cite command.
   (let ((macro (car (reftex-what-macro 1)))
         (cite-format-value (reftex-get-cite-format))
         key format)
@@ -799,7 +808,8 @@ in order to only add another reference in the same cite command."
 
 (defvar reftex-select-bib-map)
 (defun reftex-offer-bib-menu ()
-  "Offer bib menu and return list of selected items."
+  ;; Offer bib menu and return list of selected items
+
   (let ((bibtype (reftex-bib-or-thebib))
         found-list rtn key data selected-entries)
     (while
@@ -913,7 +923,7 @@ in order to only add another reference in the same cite command."
     selected-entries))
 
 (defun reftex-restrict-bib-matches (found-list)
-  "Limit FOUND-LIST with more regular expressions."
+  ;; Limit FOUND-LIST with more regular expressions
   (let ((re-list (split-string (read-string
                                 "RegExp [ && RegExp...]: "
                                 nil 'reftex-cite-regexp-hist)
@@ -936,7 +946,7 @@ in order to only add another reference in the same cite command."
       found-list)))
 
 (defun reftex-extract-bib-file (all &optional marked complement)
-  "Limit FOUND-LIST with more regular expressions."
+  ;; Limit FOUND-LIST with more regular expressions
   (let ((file (read-file-name "File to create: ")))
     (find-file-other-window file)
     (if (> (buffer-size) 0)
@@ -959,7 +969,7 @@ in order to only add another reference in the same cite command."
     (goto-char (point-min))))
 
 (defun reftex-insert-bib-matches (list)
-  "Insert the bib matches and number them correctly."
+  ;; Insert the bib matches and number them correctly
   (let ((mouse-face
          (if (memq reftex-highlight-selection '(mouse both))
              reftex-mouse-selected-face
@@ -992,7 +1002,8 @@ in order to only add another reference in the same cite command."
        last)))))
 
 (defun reftex-format-citation (entry format)
-  "Format a citation from the info in the BibTeX ENTRY according to FORMAT."
+  ;; Format a citation from the info in the BibTeX ENTRY
+
   (unless (stringp format) (setq format "\\cite{%l}"))
 
   (if (and reftex-comment-citations
@@ -1032,7 +1043,6 @@ in order to only add another reference in the same cite command."
                ((= l ?k) (reftex-get-bib-field "key" entry))
                ((= l ?m) (reftex-get-bib-field "month" entry))
                ((= l ?n) (reftex-get-bib-field "number" entry))
-	       ((= l ?N) (reftex-get-bib-field "note" entry))
                ((= l ?o) (reftex-get-bib-field "organization" entry))
                ((= l ?p) (reftex-get-bib-field "pages" entry))
                ((= l ?P) (car (split-string
@@ -1040,7 +1050,6 @@ in order to only add another reference in the same cite command."
                                "[- .]+")))
                ((= l ?s) (reftex-get-bib-field "school" entry))
                ((= l ?u) (reftex-get-bib-field "publisher" entry))
-	       ((= l ?U) (reftex-get-bib-field "url" entry))
                ((= l ?r) (reftex-get-bib-field "address" entry))
                ((= l ?t) (reftex-get-bib-field "title" entry))
                ((= l ?T) (reftex-abbreviate-title
@@ -1059,7 +1068,7 @@ in order to only add another reference in the same cite command."
   format)
 
 (defun reftex-make-cite-echo-string (entry docstruct-symbol)
-  "Format a bibtex ENTRY for the echo area and cache the result."
+  ;; Format a bibtex entry for the echo area and cache the result.
   (let* ((key (reftex-get-bib-field "&key" entry))
          (string
           (let* ((reftex-cite-punctuation '(" " " & " " etal.")))
@@ -1083,9 +1092,9 @@ in order to only add another reference in the same cite command."
     string))
 
 (defun reftex-bibtex-selection-callback (data ignore no-revisit)
-  "Callback function to be called from the BibTeX selection, in
-order to display context.  This function is relatively slow and not
-recommended for follow mode.  It works OK for individual lookups."
+  ;; Callback function to be called from the BibTeX selection, in
+  ;; order to display context.  This function is relatively slow and not
+  ;; recommended for follow mode.  It works OK for individual lookups.
   (let ((win (selected-window))
         (key (reftex-get-bib-field "&key" data))
         bibfile-list item bibtype)
@@ -1130,7 +1139,7 @@ recommended for follow mode.  It works OK for individual lookups."
           (save-restriction
             (widen)
             (goto-char (point-min))
-            (while (re-search-forward "\\(?:^\\|\\=\\)[^%\n\r]*?\\\\\\(bibentry\\|[a-zA-Z]*cite[a-zA-Z]*\\)\\(\\[[^]]*\\]\\)?{\\([^}]+\\)}" nil t)
+            (while (re-search-forward "\\(?:^\\|\\=\\)[^%\n\r]*?\\\\\\(bibentry\\|[a-zA-Z]*cite[a-zA-Z]*\\)\\(\\[[^\\]]*\\]\\)?{\\([^}]+\\)}" nil t)
               (setq kk (match-string-no-properties 3))
               (while (string-match "%.*\n?" kk)
                 (setq kk (replace-match "" t t kk)))
@@ -1152,7 +1161,7 @@ recommended for follow mode.  It works OK for individual lookups."
 					      alist))))
 
 (defun reftex-create-bibtex-file (bibfile)
-  "Create a new BibTeX database BIBFILE with all entries referenced in document.
+  "Create a new BibTeX database file with all entries referenced in document.
 The command prompts for a filename and writes the collected
 entries to that file.  Only entries referenced in the current
 document with any \\cite-like macros are used.  The sequence in
@@ -1242,5 +1251,5 @@ created files in the variables `reftex-create-bibtex-header' or
     (message "%d entries extracted and copied to new database"
              (length entries))))
 
-(provide 'reftex-cite)
+
 ;;; reftex-cite.el ends here

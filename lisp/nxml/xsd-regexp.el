@@ -1,6 +1,6 @@
 ;;; xsd-regexp.el --- translate W3C XML Schema regexps to Emacs regexps
 
-;; Copyright (C) 2003, 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2003, 2007-2013 Free Software Foundation, Inc.
 
 ;; Author: James Clark
 ;; Keywords: XML, regexp
@@ -466,8 +466,13 @@ whose value is a range-list."
 		     (- (length str)
 			(length xsdre-current-regexp))))))))
 
-(define-error 'xsdre-invalid-regexp
-  "Invalid W3C XML Schema Datatypes regular expression")
+(put 'xsdre-invalid-regexp
+     'error-conditions
+     '(error xsdre-invalid-regexp))
+
+(put 'xsdre-invalid-regexp
+     'error-message
+     "Invalid W3C XML Schema Datatypes regular expression")
 
 (defun xsdre-parse-regexp ()
   (let ((branches nil))
@@ -681,7 +686,13 @@ whose value is a range-list."
 
 ;; This error condition is used only internally.
 
-(define-error 'xsdre-parse-error "Internal error in parsing XSD regexp")
+(put 'xsdre-parse-error
+     'error-conditions
+     '(error xsdre-parse-error))
+
+(put 'xsdre-parse-error
+     'error-message
+     "Internal error in parsing XSD regexp")
 
 ;;; Character class data
 

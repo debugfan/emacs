@@ -1,6 +1,6 @@
 ;;; help-fns.el --- Complex help functions -*- lexical-binding: t -*-
 
-;; Copyright (C) 1985-1986, 1993-1994, 1998-2014 Free Software
+;; Copyright (C) 1985-1986, 1993-1994, 1998-2013 Free Software
 ;; Foundation, Inc.
 
 ;; Maintainer: FSF
@@ -31,12 +31,6 @@
 ;; are in help.el
 
 ;;; Code:
-
-(defvar help-fns-describe-function-functions nil
-  "List of functions to run in help buffer in `describe-function'.
-Those functions will be run after the header line and argument
-list was inserted, and before the documentation will be inserted.
-The functions will receive the function name as argument.")
 
 ;; Functions
 
@@ -82,7 +76,7 @@ DEF is the function whose usage we're looking for in DOCSTRING."
   (when (and docstring (string-match "\n\n(fn\\(\\( .*\\)?)\\)\\'" docstring))
     (cons (format "(%s%s"
 		  ;; Replace `fn' with the actual function name.
-		  (if (symbolp def) def "anonymous")
+		  (if (consp def) "anonymous" def)
 		  (match-string 1 docstring))
 	  (unless (zerop (match-beginning 0))
             (substring docstring 0 (match-beginning 0))))))
@@ -342,15 +336,11 @@ suitable file is found, return nil."
       ;; If we don't have a file-name string by now, we lost.
       nil)
      ;; Now, `file-name' should have become an absolute file name.
-     ;; For files loaded from ~/.foo.elc, try ~/.foo.
-     ;; This applies to config files like ~/.emacs,
-     ;; which people sometimes compile.
+     ;; For files loaded from ~/.emacs.elc, try ~/.emacs.
      ((let (fn)
-	(and (string-match "\\`\\..*\\.elc\\'"
-			   (file-name-nondirectory file-name))
-	     (string-equal (file-name-directory file-name)
-			   (file-name-as-directory (expand-file-name "~")))
-	     (file-readable-p (setq fn (file-name-sans-extension file-name)))
+	(and (string-equal file-name
+			   (expand-file-name ".emacs.elc" "~"))
+	     (file-readable-p (setq fn (expand-file-name ".emacs" "~")))
 	     fn)))
      ;; When the Elisp source file can be found in the install
      ;; directory, return the name of that file.
@@ -387,6 +377,8 @@ suitable file is found, return nil."
 			    (string-match ";;; from file \\(.*\\.el\\)" str)
 			    (match-string 1 str))))
 	(and src-file (file-readable-p src-file) src-file))))))
+
+(declare-function ad-get-advice-info "advice" (function))
 
 (defun help-fns--key-bindings (function)
   (when (commandp function)
@@ -439,19 +431,14 @@ suitable file is found, return nil."
   (let ((handler (function-get function 'compiler-macro)))
     (when handler
       (insert "\nThis function has a compiler macro")
-      (if (symbolp handler)
-          (progn
-            (insert (format " `%s'" handler))
-            (save-excursion
-              (re-search-backward "`\\([^`']+\\)'" nil t)
-              (help-xref-button 1 'help-function handler)))
-        ;; FIXME: Obsolete since 24.4.
-        (let ((lib (get function 'compiler-macro-file)))
-          (when (stringp lib)
-            (insert (format " in `%s'" lib))
-            (save-excursion
-              (re-search-backward "`\\([^`']+\\)'" nil t)
-              (help-xref-button 1 'help-function-cmacro function lib)))))
+      (let ((lib (get function 'compiler-macro-file)))
+        ;; FIXME: rather than look at the compiler-macro-file property,
+        ;; just look at `handler' itself.
+        (when (stringp lib)
+          (insert (format " in `%s'" lib))
+          (save-excursion
+            (re-search-backward "`\\([^`']+\\)'" nil t)
+            (help-xref-button 1 'help-function-cmacro function lib))))
       (insert ".\n"))))
 
 (defun help-fns--signature (function doc real-def real-function)
@@ -535,34 +522,27 @@ FILE is the file where FUNCTION was probably defined."
 
 ;;;###autoload
 (defun describe-function-1 (function)
-  (let* ((advised (and (symbolp function)
-		       (featurep 'nadvice)
-		       (advice--p (advice--symbol-function function))))
+  (let* ((advised (and (symbolp function) (featurep 'advice)
+		       (ad-get-advice-info function)))
 	 ;; If the function is advised, use the symbol that has the
 	 ;; real definition, if that symbol is already set up.
 	 (real-function
 	  (or (and advised
-		   (let* ((advised-fn (advice--cdr
-				       (advice--symbol-function function))))
-		     (while (advice--p advised-fn)
-		       (setq advised-fn (advice--cdr advised-fn)))
-		     advised-fn))
+		   (let ((origname (cdr (assq 'origname advised))))
+		     (and (fboundp origname) origname)))
 	      function))
 	 ;; Get the real definition.
 	 (def (if (symbolp real-function)
 		  (symbol-function real-function)
-		real-function))
-	 (aliased (or (symbolp def)
-		      ;; Advised & aliased function.
-		      (and advised (symbolp real-function))))
-	 (real-def (cond
-		    (aliased (let ((f real-function))
-			       (while (and (fboundp f)
-					   (symbolp (symbol-function f)))
-				 (setq f (symbol-function f)))
-			       f))
-		    ((subrp def) (intern (subr-name def)))
-		    (t def)))
+		function))
+	 (aliased (symbolp def))
+	 (real-def (if aliased
+		       (let ((f def))
+			 (while (and (fboundp f)
+				     (symbolp (symbol-function f)))
+			   (setq f (symbol-function f)))
+			 f)
+		     def))
 	 (file-name (find-lisp-object-file-name function def))
          (pt1 (with-current-buffer (help-buffer) (point)))
 	 (beg (if (and (or (byte-code-function-p def)
@@ -582,20 +562,14 @@ FILE is the file where FUNCTION was probably defined."
 		  (if (eq 'unevalled (cdr (subr-arity def)))
 		      (concat beg "special form")
 		    (concat beg "built-in function")))
-		 ;; Aliases are Lisp functions, so we need to check
-		 ;; aliases before functions.
-		 (aliased
-		  (format "an alias for `%s'" real-def))
-		 ((or (eq (car-safe def) 'macro)
-		      ;; For advised macros, def is a lambda
-		      ;; expression or a byte-code-function-p, so we
-		      ;; need to check macros before functions.
-		      (macrop function))
-		  (concat beg "Lisp macro"))
 		 ((byte-code-function-p def)
 		  (concat beg "compiled Lisp function"))
+		 (aliased
+		  (format "an alias for `%s'" real-def))
 		 ((eq (car-safe def) 'lambda)
 		  (concat beg "Lisp function"))
+		 ((eq (car-safe def) 'macro)
+		  (concat beg "Lisp macro"))
 		 ((eq (car-safe def) 'closure)
 		  (concat beg "Lisp closure"))
 		 ((autoloadp def)
@@ -655,14 +629,13 @@ FILE is the file where FUNCTION was probably defined."
         (help-fns--key-bindings function)
         (with-current-buffer standard-output
           (setq doc (help-fns--signature function doc real-def real-function))
-	  (run-hook-with-args 'help-fns-describe-function-functions function)
+
+          (help-fns--compiler-macro function)
+          (help-fns--parent-mode function)
+          (help-fns--obsolete function)
+
           (insert "\n"
                   (or doc "Not documented.")))))))
-
-;; Add defaults to `help-fns-describe-function-functions'.
-(add-hook 'help-fns-describe-function-functions 'help-fns--obsolete)
-(add-hook 'help-fns-describe-function-functions 'help-fns--parent-mode)
-(add-hook 'help-fns-describe-function-functions 'help-fns--compiler-macro)
 
 
 ;; Variables
@@ -816,7 +789,7 @@ it is displayed along with the global value."
 	      (cond
                ((bufferp locus)
                 (princ (format "Local in buffer %s; "
-                               (buffer-name buffer))))
+                               (buffer-name))))
                ((framep locus)
                 (princ (format "It is a frame-local variable; ")))
                ((terminal-live-p locus)
@@ -893,10 +866,8 @@ it is displayed along with the global value."
 		(princ "buffer-local when set.\n"))
 	       ((not permanent-local))
 	       ((bufferp locus)
-		(setq extra-line t)
 		(princ "  This variable's buffer-local value is permanent.\n"))
 	       (t
-		(setq extra-line t)
                 (princ "  This variable's value is permanent \
 if it is given a local binding.\n")))
 

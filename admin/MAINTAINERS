@@ -16,6 +16,9 @@ maintainer has been found so far.
 1.
 ==============================================================================
 
+Richard Stallman
+	???
+
 Jason Rumney
 	W32
 
@@ -68,6 +71,13 @@ Jay Belanger
             etc/calccard.tex
             doc/misc/calc.texi
 
+Michael Olson
+        ERC
+            lisp/erc/*
+            etc/ERC-NEWS
+            doc/misc/erc.texi
+        lisp/emacs-lisp/tq.el
+
 Bastien Guerry
         Org
             lisp/org/*
@@ -76,6 +86,9 @@ Bastien Guerry
 ==============================================================================
 2.
 ==============================================================================
+
+Steven Tamm
+	MacOS
 
 Eli Zaretskii
     	doc/*

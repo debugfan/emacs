@@ -1,5 +1,5 @@
-# manywarnings.m4 serial 6
-dnl Copyright (C) 2008-2014 Free Software Foundation, Inc.
+# manywarnings.m4 serial 5
+dnl Copyright (C) 2008-2013 Free Software Foundation, Inc.
 dnl This file is free software; the Free Software Foundation
 dnl gives unlimited permission to copy and/or distribute it,
 dnl with or without modifications, as long as this notice is preserved.
@@ -98,7 +98,6 @@ AC_DEFUN([gl_MANYWARN_ALL_GCC],
     -W \
     -Wabi \
     -Waddress \
-    -Waggressive-loop-optimizations \
     -Wall \
     -Warray-bounds \
     -Wattributes \
@@ -126,6 +125,7 @@ AC_DEFUN([gl_MANYWARN_ALL_GCC],
     -Wformat-security \
     -Wformat-y2k \
     -Wformat-zero-length \
+    -Wformat=2 \
     -Wfree-nonheap-object \
     -Wignored-qualifiers \
     -Wimplicit \
@@ -143,9 +143,12 @@ AC_DEFUN([gl_MANYWARN_ALL_GCC],
     -Wmissing-braces \
     -Wmissing-declarations \
     -Wmissing-field-initializers \
+    -Wmissing-format-attribute \
     -Wmissing-include-dirs \
+    -Wmissing-noreturn \
     -Wmissing-parameter-type \
     -Wmissing-prototypes \
+    -Wmudflap \
     -Wmultichar \
     -Wnarrowing \
     -Wnested-externs \
@@ -163,7 +166,6 @@ AC_DEFUN([gl_MANYWARN_ALL_GCC],
     -Wpointer-sign \
     -Wpointer-to-int-cast \
     -Wpragmas \
-    -Wreturn-local-addr \
     -Wreturn-type \
     -Wsequence-point \
     -Wshadow \
@@ -185,6 +187,7 @@ AC_DEFUN([gl_MANYWARN_ALL_GCC],
     -Wtype-limits \
     -Wuninitialized \
     -Wunknown-pragmas \
+    -Wunreachable-code \
     -Wunsafe-loop-optimizations \
     -Wunused \
     -Wunused-but-set-parameter \
@@ -203,8 +206,6 @@ AC_DEFUN([gl_MANYWARN_ALL_GCC],
     -Wvla \
     -Wvolatile-register-var \
     -Wwrite-strings \
-    -fdiagnostics-show-option \
-    -funit-at-a-time \
     \
     ; do
     gl_manywarn_set="$gl_manywarn_set $gl_manywarn_item"

@@ -1,6 +1,6 @@
 ;;; pp.el --- pretty printer for Emacs Lisp
 
-;; Copyright (C) 1989, 1993, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1989, 1993, 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: Randal Schwartz <merlyn@stonehenge.com>
 ;; Keywords: lisp
@@ -127,7 +127,8 @@ after OUT-BUFFER-NAME."
   "Evaluate EXPRESSION and pretty-print its value.
 Also add the value to the front of the list in the variable `values'."
   (interactive
-   (list (read--expression "Eval: ")))
+   (list (read-from-minibuffer "Eval: " nil read-expression-map t
+			       'read-expression-history)))
   (message "Evaluating...")
   (setq values (cons (eval expression) values))
   (pp-display-expression (car values) "*Pp Eval Output*"))
@@ -136,7 +137,8 @@ Also add the value to the front of the list in the variable `values'."
 (defun pp-macroexpand-expression (expression)
   "Macroexpand EXPRESSION and pretty-print its value."
   (interactive
-   (list (read--expression "Macroexpand: ")))
+   (list (read-from-minibuffer "Macroexpand: " nil read-expression-map t
+			       'read-expression-history)))
   (pp-display-expression (macroexpand expression) "*Pp Macroexpand Output*"))
 
 (defun pp-last-sexp ()

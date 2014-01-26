@@ -98,7 +98,7 @@ This is the @cite{GNU Emacs Lisp Reference Manual}
 @end ifnottex
 corresponding to Emacs version @value{EMACSVER}.
 
-Copyright @copyright{} 1990--1996, 1998--2014 Free Software Foundation, Inc.
+Copyright @copyright{} 1990--1996, 1998--2013 Free Software Foundation, Inc.
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document
@@ -115,11 +115,11 @@ developing GNU and promoting software freedom.''
 @end quotation
 @end copying
 
-@documentencoding UTF-8
+@documentencoding ISO-8859-1
 
-@dircategory Emacs lisp
+@dircategory GNU Emacs Lisp
 @direntry
-* Elisp: (elisp).               The Emacs Lisp Reference Manual.
+* Elisp: (elisp).       The Emacs Lisp Reference Manual.
 @end direntry
 
 @titlepage
@@ -157,17 +157,6 @@ Cover art by Etienne Suvasa.
 @node Top
 @top Emacs Lisp
 
-@ifset WWW_GNU_ORG
-@html
-<p>The homepage for GNU Emacs is at
-<a href="/software/emacs/">http://www.gnu.org/software/emacs/</a>.<br>
-For information on using Emacs, refer to the
-<a href="/software/emacs/manual/emacs.html">Emacs Manual</a>.<br>
-To view this manual in other formats, click
-<a href="/software/emacs/manual/elisp.html">here</a>.
-@end html
-@end ifset
-
 @insertcopying
 @end ifnottex
 
@@ -194,6 +183,7 @@ To view this manual in other formats, click
 
 * Loading::                 Reading files of Lisp code into Lisp.
 * Byte Compilation::        Compilation makes programs run faster.
+* Advising Functions::      Adding to the definition of a function.
 * Debugging::               Tools and tips for debugging Lisp programs.
 
 * Read and Print::          Converting Lisp objects to text and back.
@@ -613,6 +603,19 @@ Byte Compilation
 * Byte-Code Objects::       The data type used for byte-compiled functions.
 * Disassembly::             Disassembling byte-code; how to read byte-code.
 
+Advising Emacs Lisp Functions
+
+* Simple Advice::           A simple example to explain the basics of advice.
+* Defining Advice::         Detailed description of @code{defadvice}.
+* Around-Advice::           Wrapping advice around a function's definition.
+* Computed Advice::         ...is to @code{defadvice} as @code{fset} is to @code{defun}.
+* Activation of Advice::    Advice doesn't do anything until you activate it.
+* Enabling Advice::         You can enable or disable each piece of advice.
+* Preactivation::           Preactivation is a way of speeding up the
+                              loading of compiled advice.
+* Argument Access in Advice:: How advice can access the function's arguments.
+* Combined Definition::     How advice is implemented.
+
 Debugging Lisp Programs
 
 * Debugger::                A debugger for the Emacs Lisp evaluator.
@@ -937,8 +940,7 @@ Information about Files
 * Testing Accessibility::   Is a given file readable?  Writable?
 * Kinds of Files::          Is it a directory?  A symbolic link?
 * Truenames::               Eliminating symbolic links from a file name.
-* File Attributes::         File sizes, modification times, etc.
-* Extended Attributes::     Extended file attributes for access control.
+* File Attributes::         How large is it?  Any other names?  Etc.
 * Locating Files::          How to find a file in standard places.
 
 File Names
@@ -1181,7 +1183,6 @@ Text Properties
 Non-@acronym{ASCII} Characters
 
 * Text Representations::    How Emacs represents text.
-* Disabling Multibyte::     Controlling whether to use multibyte characters.
 * Converting Representations::  Converting unibyte to multibyte and vice versa.
 * Selecting a Representation::  Treating a byte sequence as unibyte or multi.
 * Character Codes::         How unibyte and multibyte relate to
@@ -1208,6 +1209,8 @@ Coding Systems
                                     for a single file operation.
 * Explicit Encoding::       Encoding or decoding text without doing I/O.
 * Terminal I/O Encoding::   Use of encoding for terminal I/O.
+* MS-DOS File Types::       How DOS "text" and "binary" files
+                                relate to coding systems.
 
 Searching and Matching
 
@@ -1416,13 +1419,15 @@ Images
 * Image Descriptors::       How to specify an image for use in @code{:display}.
 * XBM Images::              Special features for XBM format.
 * XPM Images::              Special features for XPM format.
+* GIF Images::              Special features for GIF format.
+* TIFF Images::             Special features for TIFF format.
 * PostScript Images::       Special features for PostScript format.
 * ImageMagick Images::      Special features available through ImageMagick.
 * Other Image Types::       Various other formats are supported.
 * Defining Images::         Convenient ways to define an image for later use.
 * Showing Images::          Convenient ways to display an image once
                               it is defined.
-* Multi-Frame Images::      Some images contain more than one frame.
+* Animated Images::         Some image formats can be animated.
 * Image Cache::             Internal mechanisms of image display.
 
 Buttons
@@ -1470,8 +1475,7 @@ Operating System Interface
 * Batch Mode::              Running Emacs without terminal interaction.
 * Session Management::      Saving and restoring state with
                               X Session Management.
-* Desktop Notifications::   Desktop notifications.
-* File Notifications::      File notifications.
+* Notifications::           Desktop notifications.
 * Dynamic Libraries::       On-demand loading of support libraries.
 
 Starting Up Emacs
@@ -1547,6 +1551,7 @@ Object Internals
 @include customize.texi
 @include loading.texi
 @include compile.texi
+@include advice.texi
 
 @c This includes edebug.texi.
 @include debugging.texi
@@ -1588,11 +1593,7 @@ Object Internals
 @c appendices
 
 @include anti.texi
-@node GNU Free Documentation License
-@appendix GNU Free Documentation License
 @include doclicense.texi
-@node GPL
-@appendix GNU General Public License
 @include gpl.texi
 @include tips.texi
 @include internals.texi

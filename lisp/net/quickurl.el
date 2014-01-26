@@ -1,6 +1,6 @@
 ;;; quickurl.el --- insert a URL based on text at point in buffer
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: Dave Pearson <davep@davep.org>
 ;; Maintainer: Dave Pearson <davep@davep.org>
@@ -94,8 +94,7 @@
   :group  'abbrev
   :prefix "quickurl-")
 
-(defcustom quickurl-url-file
-  (locate-user-emacs-file "quickurls" ".quickurls")
+(defcustom quickurl-url-file (convert-standard-filename "~/.quickurls")
   "File that contains the URL list."
   :type  'file
   :group 'quickurl)
@@ -273,8 +272,7 @@ It also restores point after the `read'."
 (defun quickurl-save-urls ()
   "Save the contents of `quickurl-urls' to `quickurl-url-file'."
   (with-temp-buffer
-    (let ((standard-output (current-buffer))
-          (print-length nil))
+    (let ((standard-output (current-buffer)))
       (princ quickurl-prefix)
       (pp quickurl-urls)
       (princ quickurl-postfix)
@@ -429,12 +427,18 @@ current buffer, this default action can be modified via
 (put 'quickurl-list-mode 'mode-class 'special)
 
 ;;;###autoload
-(define-derived-mode quickurl-list-mode fundamental-mode "quickurl list"
+(defun quickurl-list-mode ()
   "A mode for browsing the quickurl URL list.
 
 The key bindings for `quickurl-list-mode' are:
 
 \\{quickurl-list-mode-map}"
+  (interactive)
+  (kill-all-local-variables)
+  (use-local-map quickurl-list-mode-map)
+  (setq major-mode 'quickurl-list-mode
+        mode-name  "quickurl list")
+  (run-mode-hooks 'quickurl-list-mode-hook)
   (setq buffer-read-only t
         truncate-lines   t))
 

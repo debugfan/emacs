@@ -1,6 +1,6 @@
 ;;; apropos.el --- apropos commands for users and programmers
 
-;; Copyright (C) 1989, 1994-1995, 2001-2014 Free Software Foundation,
+;; Copyright (C) 1989, 1994-1995, 2001-2013 Free Software Foundation,
 ;; Inc.
 
 ;; Author: Joe Wells <jbw@bigbird.bu.edu>
@@ -69,7 +69,7 @@
   "Non nil means apropos commands will search more extensively.
 This may be slower.  This option affects the following commands:
 
-`apropos-user-option' will search all variables, not just user options.
+`apropos-variable' will search all variables, not just user variables.
 `apropos-command' will also search non-interactive functions.
 `apropos' will search all symbols, not just functions, variables, faces,
 and those with property lists.
@@ -115,12 +115,6 @@ include key-binding information in its output."
   :group 'apropos
   :version "24.3")
 
-(defface apropos-user-option-button
-  '((t (:inherit (font-lock-variable-name-face button))))
-  "Button face indicating a user option in Apropos."
-  :group 'apropos
-  :version "24.4")
-
 (defface apropos-misc-button
   '((t (:inherit (font-lock-constant-face button))))
   "Button face indicating a miscellaneous object type in Apropos."
@@ -131,7 +125,6 @@ include key-binding information in its output."
   "Face for matching text in Apropos documentation/value, or nil for none.
 This applies when you look for matches in the documentation or variable value
 for the pattern; the part that matches gets displayed in this font."
-  :type '(choice (const nil) face)
   :group 'apropos
   :version "24.3")
 
@@ -268,15 +261,6 @@ term, and the rest of the words are alternative terms.")
   'action (lambda (button)
 	    (describe-variable (button-get button 'apropos-symbol))))
 
-(define-button-type 'apropos-user-option
-  'apropos-label "User option"
-  'apropos-short-label "o"
-  'face 'apropos-user-option-button
-  'help-echo "mouse-2, RET: Display more help on this user option"
-  'follow-link t
-  'action (lambda (button)
-	    (describe-variable (button-get button 'apropos-symbol))))
-
 (define-button-type 'apropos-face
   'apropos-label "Face"
   'apropos-short-label "F"
@@ -342,21 +326,16 @@ before finding a label."
 
 
 (defun apropos-words-to-regexp (words wild)
-  "Make regexp matching any two of the words in WORDS.
-WILD should be a subexpression matching wildcards between matches."
-  (setq words (delete-dups (copy-sequence words)))
-  (if (null (cdr words))
-      (car words)
-    (mapconcat
-     (lambda (w)
-       (concat "\\(?:" w "\\)" ;; parens for synonyms
-               wild "\\(?:"
-               (mapconcat 'identity
-			  (delq w (copy-sequence words))
-			  "\\|")
-               "\\)"))
-     words
-     "\\|")))
+  "Make regexp matching any two of the words in WORDS."
+  (concat "\\("
+	  (mapconcat 'identity words "\\|")
+	  "\\)"
+	  (if (cdr words)
+	      (concat wild
+		      "\\("
+		      (mapconcat 'identity words "\\|")
+		      "\\)")
+	    "")))
 
 ;;;###autoload
 (defun apropos-read-pattern (subject)
@@ -482,15 +461,15 @@ This requires that at least 2 keywords (unless only one was given)."
 This is used to decide whether to print the result's type or not.")
 
 ;;;###autoload
-(defun apropos-user-option (pattern &optional do-all)
-  "Show user options that match PATTERN.
+(defun apropos-variable (pattern &optional do-all)
+  "Show user variables that match PATTERN.
 PATTERN can be a word, a list of words (separated by spaces),
 or a regexp (using some regexp special characters).  If it is a word,
 search for matches for that word as a substring.  If it is a list of words,
 search for matches for any two (or more) of those words.
 
 With \\[universal-argument] prefix, or if `apropos-do-all' is non-nil, also show
-variables, not just user options."
+normal variables."
   (interactive (list (apropos-read-pattern
 		      (if (or current-prefix-arg apropos-do-all)
 			  "variable" "user option"))
@@ -501,17 +480,6 @@ variables, not just user options."
 			   (and (boundp symbol)
 				(get symbol 'variable-documentation)))
 		     'custom-variable-p)))
-
-;;;###autoload
-(defun apropos-variable (pattern &optional do-not-all)
-  "Show variables that match PATTERN.
-When DO-NOT-ALL is not-nil, show user options only, i.e. behave
-like `apropos-user-option'."
-  (interactive (list (apropos-read-pattern
-		      (if current-prefix-arg "user option" "variable"))
-                     current-prefix-arg))
-  (let ((apropos-do-all (if do-not-all nil t)))
-    (apropos-user-option pattern)))
 
 ;; For auld lang syne:
 ;;;###autoload
@@ -1006,7 +974,8 @@ Returns list of symbols and documentation found."
   "Like `documentation', except it avoids calling `get_doc_string'.
 Will return nil instead."
   (while (and function (symbolp function))
-    (setq function (symbol-function function)))
+    (setq function (if (fboundp function)
+		       (symbol-function function))))
   (if (eq (car-safe function) 'macro)
       (setq function (cdr function)))
   (setq function (if (byte-code-function-p function)
@@ -1126,15 +1095,11 @@ If non-nil TEXT is a string that will be printed as a heading."
 	  (apropos-print-doc 2
 			     (if (commandp symbol)
 				 'apropos-command
-			       (if (macrop symbol)
+			       (if (apropos-macrop symbol)
 				   'apropos-macro
 				 'apropos-function))
 			     (not nosubst))
-	  (apropos-print-doc 3
-			     (if (custom-variable-p symbol)
-				 'apropos-user-option
-			       'apropos-variable)
-			     (not nosubst))
+	  (apropos-print-doc 3 'apropos-variable (not nosubst))
 	  (apropos-print-doc 7 'apropos-group t)
 	  (apropos-print-doc 6 'apropos-face t)
 	  (apropos-print-doc 5 'apropos-widget t)
@@ -1143,6 +1108,17 @@ If non-nil TEXT is a string that will be printed as a heading."
         (set (make-local-variable 'truncate-lines) t))))
   (prog1 apropos-accumulator
     (setq apropos-accumulator ())))	; permit gc
+
+(defun apropos-macrop (symbol)
+  "Return t if SYMBOL is a Lisp macro."
+  (and (fboundp symbol)
+       (consp (setq symbol
+		    (symbol-function symbol)))
+       (or (eq (car symbol) 'macro)
+	   (if (autoloadp symbol)
+	       (memq (nth 4 symbol)
+		     '(macro t))))))
+
 
 (defun apropos-print-doc (i type do-keys)
   (let ((doc (nth i apropos-item)))

@@ -1,6 +1,6 @@
-;;; em-prompt.el --- command prompts  -*- lexical-binding:t -*-
+;;; em-prompt.el --- command prompts
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -26,7 +26,6 @@
 
 ;;; Code:
 
-(require 'esh-mode)
 (eval-when-compile (require 'eshell))
 
 ;;;###autoload
@@ -44,8 +43,6 @@ as is common with most shells."
   :version "24.1"			; removed eshell-prompt-initialize
   :type 'hook
   :group 'eshell-prompt)
-
-(autoload 'eshell/pwd "em-dirs")
 
 (defcustom eshell-prompt-function
   (function
@@ -124,9 +121,8 @@ arriving, or after."
       (and eshell-highlight-prompt
 	   (add-text-properties 0 (length prompt)
 				'(read-only t
-				  font-lock-face eshell-prompt
-				  front-sticky (font-lock-face read-only)
-				  rear-nonsticky (font-lock-face read-only))
+				  face eshell-prompt
+				  rear-nonsticky (face read-only))
 				prompt))
       (eshell-interactive-print prompt)))
   (run-hooks 'eshell-after-prompt-hook))

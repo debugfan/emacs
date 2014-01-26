@@ -1,6 +1,6 @@
-;;; rng-match.el --- matching of RELAX NG patterns against XML events  -*- lexical-binding:t -*-
+;;; rng-match.el --- matching of RELAX NG patterns against XML events
 
-;; Copyright (C) 2003, 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2003, 2007-2013 Free Software Foundation, Inc.
 
 ;; Author: James Clark
 ;; Keywords: XML, RelaxNG
@@ -34,7 +34,6 @@
 (require 'rng-pttrn)
 (require 'rng-util)
 (require 'rng-dt)
-(eval-when-compile (require 'cl-lib))
 
 (defvar rng-not-allowed-ipattern nil)
 (defvar rng-empty-ipattern nil)
@@ -64,31 +63,38 @@ Used to detect invalid recursive references.")
 
 ;;; Interned patterns
 
-(cl-defstruct (rng--ipattern
-               (:constructor nil)
-               (:type vector)
-               (:copier nil)
-               (:constructor rng-make-ipattern
-                (type index name-class child nullable)))
-  type
-  index
-  name-class ;; Field also known as: `datatype' and `after'.
-  child      ;; Field also known as: `value-object'.
-  nullable
-  (memo-text-typed 'unknown)
-  memo-map-start-tag-open-deriv
-  memo-map-start-attribute-deriv
-  memo-start-tag-close-deriv
-  memo-text-only-deriv
-  memo-mixed-text-deriv
-  memo-map-data-deriv
-  memo-end-tag-deriv)
+(eval-when-compile
+  (defun rng-ipattern-slot-accessor-name (slot-name)
+    (intern (concat "rng-ipattern-get-"
+		    (symbol-name slot-name))))
 
-;; I think depending on the value of `type' the two fields after `index'
-;; are used sometimes for different purposes, hence the aliases here:
-(defalias 'rng--ipattern-datatype 'rng--ipattern-name-class)
-(defalias 'rng--ipattern-after 'rng--ipattern-name-class)
-(defalias 'rng--ipattern-value-object 'rng--ipattern-child)
+  (defun rng-ipattern-slot-setter-name (slot-name)
+    (intern (concat "rng-ipattern-set-"
+		    (symbol-name slot-name)))))
+
+(defmacro rng-ipattern-defslot (slot-name index)
+  `(progn
+     (defsubst ,(rng-ipattern-slot-accessor-name slot-name) (ipattern)
+       (aref ipattern ,index))
+     (defsubst ,(rng-ipattern-slot-setter-name slot-name) (ipattern value)
+       (aset ipattern ,index value))))
+
+(rng-ipattern-defslot type 0)
+(rng-ipattern-defslot index 1)
+(rng-ipattern-defslot name-class 2)
+(rng-ipattern-defslot datatype 2)
+(rng-ipattern-defslot after 2)
+(rng-ipattern-defslot child 3)
+(rng-ipattern-defslot value-object 3)
+(rng-ipattern-defslot nullable 4)
+(rng-ipattern-defslot memo-text-typed 5)
+(rng-ipattern-defslot memo-map-start-tag-open-deriv 6)
+(rng-ipattern-defslot memo-map-start-attribute-deriv 7)
+(rng-ipattern-defslot memo-start-tag-close-deriv 8)
+(rng-ipattern-defslot memo-text-only-deriv 9)
+(rng-ipattern-defslot memo-mixed-text-deriv 10)
+(rng-ipattern-defslot memo-map-data-deriv 11)
+(rng-ipattern-defslot memo-end-tag-deriv 12)
 
 (defconst rng-memo-map-alist-max 10)
 
@@ -135,6 +141,25 @@ therefore minimal overhead in successful lookups on small lists
 	    (t (cons (1+ head)
 		     (cons (cons key value)
 			   (cdr mm))))))))
+
+(defsubst rng-make-ipattern (type index name-class child nullable)
+  (vector type index name-class child nullable
+	  ;; 5 memo-text-typed
+	  'unknown
+	  ;; 6 memo-map-start-tag-open-deriv
+	  nil
+	  ;; 7 memo-map-start-attribute-deriv
+	  nil
+	  ;; 8 memo-start-tag-close-deriv
+	  nil
+	  ;; 9 memo-text-only-deriv
+	  nil
+	  ;; 10 memo-mixed-text-deriv
+	  nil
+	  ;; 11 memo-map-data-deriv
+	  nil
+	  ;; 12 memo-end-tag-deriv
+	  nil))
 
 (defun rng-ipattern-maybe-init ()
   (unless rng-ipattern-table
@@ -183,8 +208,8 @@ therefore minimal overhead in successful lookups on small lists
   (if (eq child rng-not-allowed-ipattern)
       rng-not-allowed-ipattern
     (let ((key (list 'after
-		     (rng--ipattern-index child)
-		     (rng--ipattern-index after))))
+		     (rng-ipattern-get-index child)
+		     (rng-ipattern-get-index after))))
       (or (rng-get-ipattern key)
 	  (rng-put-ipattern key
 			    'after
@@ -197,7 +222,7 @@ therefore minimal overhead in successful lookups on small lists
       rng-not-allowed-ipattern
     (let ((key (list 'attribute
 		     name-class
-		     (rng--ipattern-index ipattern))))
+		     (rng-ipattern-get-index ipattern))))
       (or (rng-get-ipattern key)
 	  (rng-put-ipattern key
 			    'attribute
@@ -213,8 +238,8 @@ therefore minimal overhead in successful lookups on small lists
 					  dt
 					  nil
 					  matches-anything)))
-	  (setf (rng--ipattern-memo-text-typed ipattern)
-                (not matches-anything))
+	  (rng-ipattern-set-memo-text-typed ipattern
+					    (not matches-anything))
 	  ipattern))))
 
 (defun rng-intern-data-except (dt ipattern)
@@ -238,20 +263,20 @@ therefore minimal overhead in successful lookups on small lists
 (defun rng-intern-one-or-more (ipattern)
   (or (rng-intern-one-or-more-shortcut ipattern)
       (let ((key (cons 'one-or-more
-		       (list (rng--ipattern-index ipattern)))))
+		       (list (rng-ipattern-get-index ipattern)))))
 	(or (rng-get-ipattern key)
 	    (rng-put-ipattern key
 			      'one-or-more
 			      nil
 			      ipattern
-			      (rng--ipattern-nullable ipattern))))))
+			      (rng-ipattern-get-nullable ipattern))))))
 
 (defun rng-intern-one-or-more-shortcut (ipattern)
   (cond ((eq ipattern rng-not-allowed-ipattern)
 	 rng-not-allowed-ipattern)
 	((eq ipattern rng-empty-ipattern)
 	 rng-empty-ipattern)
-	((eq (rng--ipattern-type ipattern) 'one-or-more)
+	((eq (rng-ipattern-get-type ipattern) 'one-or-more)
 	 ipattern)
 	(t nil)))
 
@@ -259,7 +284,7 @@ therefore minimal overhead in successful lookups on small lists
   (if (eq ipattern rng-not-allowed-ipattern)
       rng-not-allowed-ipattern
     (let ((key (cons 'list
-		     (list (rng--ipattern-index ipattern)))))
+		     (list (rng-ipattern-get-index ipattern)))))
       (or (rng-get-ipattern key)
 	  (rng-put-ipattern key
 			    'list
@@ -274,7 +299,7 @@ therefore minimal overhead in successful lookups on small lists
 	     (normalized (cdr tem)))
 	(or (rng-intern-group-shortcut normalized)
 	    (let ((key (cons 'group
-			     (mapcar #'rng--ipattern-index normalized))))
+			     (mapcar 'rng-ipattern-get-index normalized))))
 	      (or (rng-get-ipattern key)
 		  (rng-put-ipattern key
 				    'group
@@ -320,10 +345,10 @@ cdr is the normalized list."
       (setq member (car ipatterns))
       (setq ipatterns (cdr ipatterns))
       (when nullable
-	(setq nullable (rng--ipattern-nullable member)))
-      (cond ((eq (rng--ipattern-type member) 'group)
+	(setq nullable (rng-ipattern-get-nullable member)))
+      (cond ((eq (rng-ipattern-get-type member) 'group)
 	     (setq result
-		   (nconc (reverse (rng--ipattern-child member))
+		   (nconc (reverse (rng-ipattern-get-child member))
 			  result)))
 	    ((eq member rng-not-allowed-ipattern)
 	     (setq result (list rng-not-allowed-ipattern))
@@ -338,7 +363,7 @@ cdr is the normalized list."
 	     (normalized (cdr tem)))
 	(or (rng-intern-group-shortcut normalized)
 	    (let ((key (cons 'interleave
-			     (mapcar #'rng--ipattern-index normalized))))
+			     (mapcar 'rng-ipattern-get-index normalized))))
 	      (or (rng-get-ipattern key)
 		  (rng-put-ipattern key
 				    'interleave
@@ -358,10 +383,10 @@ cdr is the normalized list."
       (setq member (car ipatterns))
       (setq ipatterns (cdr ipatterns))
       (when nullable
-	(setq nullable (rng--ipattern-nullable member)))
-      (cond ((eq (rng--ipattern-type member) 'interleave)
+	(setq nullable (rng-ipattern-get-nullable member)))
+      (cond ((eq (rng-ipattern-get-type member) 'interleave)
 	     (setq result
-		   (append (rng--ipattern-child member)
+		   (append (rng-ipattern-get-child member)
 			    result)))
 	    ((eq member rng-not-allowed-ipattern)
 	     (setq result (list rng-not-allowed-ipattern))
@@ -382,7 +407,7 @@ May alter IPATTERNS."
 	    (rng-intern-choice1 normalized (car tem))))))
 
 (defun rng-intern-optional (ipattern)
-  (cond ((rng--ipattern-nullable ipattern) ipattern)
+  (cond ((rng-ipattern-get-nullable ipattern) ipattern)
 	((eq ipattern rng-not-allowed-ipattern) rng-empty-ipattern)
 	(t (rng-intern-choice1
 	    ;; This is sorted since the empty pattern
@@ -390,15 +415,15 @@ May alter IPATTERNS."
 	    ;; It cannot have a duplicate empty pattern,
 	    ;; since it is not nullable.
 	    (cons rng-empty-ipattern
-		  (if (eq (rng--ipattern-type ipattern) 'choice)
-		      (rng--ipattern-child ipattern)
+		  (if (eq (rng-ipattern-get-type ipattern) 'choice)
+		      (rng-ipattern-get-child ipattern)
 		    (list ipattern)))
 	    t))))
 
 
 (defun rng-intern-choice1 (normalized nullable)
   (let ((key (cons 'choice
-		   (mapcar #'rng--ipattern-index normalized))))
+		   (mapcar 'rng-ipattern-get-index normalized))))
     (or (rng-get-ipattern key)
 	(rng-put-ipattern key
 			  'choice
@@ -441,10 +466,10 @@ list is nullable and whose cdr is the normalized list."
       (while cur
 	(setq member (car cur))
 	(or nullable
-	    (setq nullable (rng--ipattern-nullable member)))
-	(cond ((eq (rng--ipattern-type member) 'choice)
+	    (setq nullable (rng-ipattern-get-nullable member)))
+	(cond ((eq (rng-ipattern-get-type member) 'choice)
 	       (setq final-tail
-		     (append (rng--ipattern-child member)
+		     (append (rng-ipattern-get-child member)
 			     final-tail))
 	       (setq cur (cdr cur))
 	       (setq sorted nil)
@@ -454,7 +479,7 @@ list is nullable and whose cdr is the normalized list."
 	       (setcdr tail cur))
 	      (t
 	       (if (and sorted
-			(let ((cur-index (rng--ipattern-index member)))
+			(let ((cur-index (rng-ipattern-get-index member)))
 			  (if (>= prev-index cur-index)
 			      (or (= prev-index cur-index) ; will remove it
 				  (setq sorted nil)) ; won't remove it
@@ -476,8 +501,8 @@ list is nullable and whose cdr is the normalized list."
 	    (rng-uniquify-eq (sort head 'rng-compare-ipattern))))))
 
 (defun rng-compare-ipattern (p1 p2)
-  (< (rng--ipattern-index p1)
-     (rng--ipattern-index p2)))
+  (< (rng-ipattern-get-index p1)
+     (rng-ipattern-get-index p2)))
 
 ;;; Name classes
 
@@ -532,50 +557,50 @@ list may contain duplicates."
 ;;; Debugging utilities
 
 (defun rng-ipattern-to-string (ipattern)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'after)
 	   (concat (rng-ipattern-to-string
-		    (rng--ipattern-child ipattern))
+		    (rng-ipattern-get-child ipattern))
 		   " </> "
 		   (rng-ipattern-to-string
-		    (rng--ipattern-after ipattern))))
+		    (rng-ipattern-get-after ipattern))))
 	  ((eq type 'element)
 	   (concat "element "
 		   (rng-name-class-to-string
-		    (rng--ipattern-name-class ipattern))
+		    (rng-ipattern-get-name-class ipattern))
 		   ;; we can get cycles with elements so don't print it out
 		   " {...}"))
 	  ((eq type 'attribute)
 	   (concat "attribute "
 		   (rng-name-class-to-string
-		    (rng--ipattern-name-class ipattern))
+		    (rng-ipattern-get-name-class ipattern))
 		   " { "
 		   (rng-ipattern-to-string
-		    (rng--ipattern-child ipattern))
+		    (rng-ipattern-get-child ipattern))
 		   " } "))
 	  ((eq type 'empty) "empty")
 	  ((eq type 'text) "text")
 	  ((eq type 'not-allowed) "notAllowed")
 	  ((eq type 'one-or-more)
 	   (concat (rng-ipattern-to-string
-		    (rng--ipattern-child ipattern))
+		    (rng-ipattern-get-child ipattern))
 		   "+"))
 	  ((eq type 'choice)
 	   (concat "("
 		   (mapconcat 'rng-ipattern-to-string
-			      (rng--ipattern-child ipattern)
+			      (rng-ipattern-get-child ipattern)
 			      " | ")
 		   ")"))
 	  ((eq type 'group)
 	   (concat "("
 		   (mapconcat 'rng-ipattern-to-string
-			      (rng--ipattern-child ipattern)
+			      (rng-ipattern-get-child ipattern)
 			      ", ")
 		   ")"))
 	  ((eq type 'interleave)
 	   (concat "("
 		   (mapconcat 'rng-ipattern-to-string
-			      (rng--ipattern-child ipattern)
+			      (rng-ipattern-get-child ipattern)
 			      " & ")
 		   ")"))
 	  (t (symbol-name type)))))
@@ -639,10 +664,10 @@ list may contain duplicates."
 		     nil))
 
 (defun rng-element-get-child (element)
-  (let ((tem (rng--ipattern-child element)))
+  (let ((tem (rng-ipattern-get-child element)))
     (if (vectorp tem)
 	tem
-      (setf (rng--ipattern-child element) (rng-compile tem)))))
+      (rng-ipattern-set-child element (rng-compile tem)))))
 
 (defun rng-compile-attribute (name-class pattern)
   (rng-intern-attribute (rng-compile-name-class name-class)
@@ -814,16 +839,17 @@ list may contain duplicates."
 ;;; Derivatives
 
 (defun rng-ipattern-text-typed-p (ipattern)
-  (let ((memo (rng--ipattern-memo-text-typed ipattern)))
+  (let ((memo (rng-ipattern-get-memo-text-typed ipattern)))
     (if (eq memo 'unknown)
-	(setf (rng--ipattern-memo-text-typed ipattern)
-              (rng-ipattern-compute-text-typed-p ipattern))
+	(rng-ipattern-set-memo-text-typed
+	 ipattern
+	 (rng-ipattern-compute-text-typed-p ipattern))
       memo)))
 
 (defun rng-ipattern-compute-text-typed-p (ipattern)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'choice)
-	   (let ((cur (rng--ipattern-child ipattern))
+	   (let ((cur (rng-ipattern-get-child ipattern))
 		 (ret nil))
 	     (while (and cur (not ret))
 	       (if (rng-ipattern-text-typed-p (car cur))
@@ -831,7 +857,7 @@ list may contain duplicates."
 		 (setq cur (cdr cur))))
 	     ret))
 	  ((eq type 'group)
-	   (let ((cur (rng--ipattern-child ipattern))
+	   (let ((cur (rng-ipattern-get-child ipattern))
 		 (ret nil)
 		 member)
 	     (while (and cur (not ret))
@@ -839,17 +865,17 @@ list may contain duplicates."
 	       (if (rng-ipattern-text-typed-p member)
 		   (setq ret t))
 	       (setq cur
-		     (and (rng--ipattern-nullable member)
+		     (and (rng-ipattern-get-nullable member)
 			  (cdr cur))))
 	     ret))
 	  ((eq type 'after)
-	   (rng-ipattern-text-typed-p (rng--ipattern-child ipattern)))
+	   (rng-ipattern-text-typed-p (rng-ipattern-get-child ipattern)))
 	  (t (and (memq type '(value list data data-except)) t)))))
 
 (defun rng-start-tag-open-deriv (ipattern nm)
   (or (rng-memo-map-get
        nm
-       (rng--ipattern-memo-map-start-tag-open-deriv ipattern))
+       (rng-ipattern-get-memo-map-start-tag-open-deriv ipattern))
       (rng-ipattern-memo-start-tag-open-deriv
        ipattern
        nm
@@ -857,54 +883,56 @@ list may contain duplicates."
 
 (defun rng-ipattern-memo-start-tag-open-deriv (ipattern nm deriv)
   (or (memq ipattern rng-const-ipatterns)
-      (setf (rng--ipattern-memo-map-start-tag-open-deriv ipattern)
-            (rng-memo-map-add nm
-                              deriv
-                              (rng--ipattern-memo-map-start-tag-open-deriv
-                               ipattern))))
+      (rng-ipattern-set-memo-map-start-tag-open-deriv
+       ipattern
+       (rng-memo-map-add nm
+			 deriv
+			 (rng-ipattern-get-memo-map-start-tag-open-deriv
+			  ipattern))))
   deriv)
 
 (defun rng-compute-start-tag-open-deriv (ipattern nm)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'choice)
-	   (rng-transform-choice (lambda (p)
-                                   (rng-start-tag-open-deriv p nm))
+	   (rng-transform-choice `(lambda (p)
+				    (rng-start-tag-open-deriv p ',nm))
 				 ipattern))
 	  ((eq type 'element)
 	   (if (rng-name-class-contains
-		(rng--ipattern-name-class ipattern)
+		(rng-ipattern-get-name-class ipattern)
 		nm)
 	       (rng-intern-after (rng-element-get-child ipattern)
 				 rng-empty-ipattern)
 	     rng-not-allowed-ipattern))
 	  ((eq type 'group)
 	   (rng-transform-group-nullable
-	    (lambda (p) (rng-start-tag-open-deriv p nm))
+	    `(lambda (p) (rng-start-tag-open-deriv p ',nm))
 	    'rng-cons-group-after
 	    ipattern))
 	  ((eq type 'interleave)
 	   (rng-transform-interleave-single
-	    (lambda (p) (rng-start-tag-open-deriv p nm))
+	    `(lambda (p) (rng-start-tag-open-deriv p ',nm))
 	    'rng-subst-interleave-after
 	    ipattern))
 	  ((eq type 'one-or-more)
-           (let ((ip (rng-intern-optional ipattern)))
-             (rng-apply-after
-              (lambda (p) (rng-intern-group (list p ip)))
-              (rng-start-tag-open-deriv (rng--ipattern-child ipattern)
-                                        nm))))
+	   (rng-apply-after
+	    `(lambda (p)
+	       (rng-intern-group (list p ,(rng-intern-optional ipattern))))
+	    (rng-start-tag-open-deriv (rng-ipattern-get-child ipattern)
+				      nm)))
 	  ((eq type 'after)
-           (let ((nip (rng--ipattern-after ipattern)))
-             (rng-apply-after
-              (lambda (p) (rng-intern-after p nip))
-              (rng-start-tag-open-deriv (rng--ipattern-child ipattern)
-                                        nm))))
+	   (rng-apply-after
+	    `(lambda (p)
+	       (rng-intern-after p
+				 ,(rng-ipattern-get-after ipattern)))
+	    (rng-start-tag-open-deriv (rng-ipattern-get-child ipattern)
+				      nm)))
 	  (t rng-not-allowed-ipattern))))
 
 (defun rng-start-attribute-deriv (ipattern nm)
   (or (rng-memo-map-get
        nm
-       (rng--ipattern-memo-map-start-attribute-deriv ipattern))
+       (rng-ipattern-get-memo-map-start-attribute-deriv ipattern))
       (rng-ipattern-memo-start-attribute-deriv
        ipattern
        nm
@@ -912,79 +940,82 @@ list may contain duplicates."
 
 (defun rng-ipattern-memo-start-attribute-deriv (ipattern nm deriv)
   (or (memq ipattern rng-const-ipatterns)
-      (setf (rng--ipattern-memo-map-start-attribute-deriv ipattern)
-            (rng-memo-map-add
-             nm
-             deriv
-             (rng--ipattern-memo-map-start-attribute-deriv ipattern))))
+      (rng-ipattern-set-memo-map-start-attribute-deriv
+       ipattern
+       (rng-memo-map-add
+	nm
+	deriv
+	(rng-ipattern-get-memo-map-start-attribute-deriv ipattern))))
   deriv)
 
 (defun rng-compute-start-attribute-deriv (ipattern nm)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'choice)
-	   (rng-transform-choice (lambda (p)
-                                   (rng-start-attribute-deriv p nm))
+	   (rng-transform-choice `(lambda (p)
+				    (rng-start-attribute-deriv p ',nm))
 				 ipattern))
 	  ((eq type 'attribute)
 	   (if (rng-name-class-contains
-		(rng--ipattern-name-class ipattern)
+		(rng-ipattern-get-name-class ipattern)
 		nm)
-	       (rng-intern-after (rng--ipattern-child ipattern)
+	       (rng-intern-after (rng-ipattern-get-child ipattern)
 				 rng-empty-ipattern)
 	     rng-not-allowed-ipattern))
 	  ((eq type 'group)
 	   (rng-transform-interleave-single
-	    (lambda (p) (rng-start-attribute-deriv p nm))
+	    `(lambda (p) (rng-start-attribute-deriv p ',nm))
 	    'rng-subst-group-after
 	    ipattern))
 	  ((eq type 'interleave)
 	   (rng-transform-interleave-single
-	    (lambda (p) (rng-start-attribute-deriv p nm))
+	    `(lambda (p) (rng-start-attribute-deriv p ',nm))
 	    'rng-subst-interleave-after
 	    ipattern))
 	  ((eq type 'one-or-more)
-           (let ((ip (rng-intern-optional ipattern)))
-             (rng-apply-after
-              (lambda (p) (rng-intern-group (list p ip)))
-              (rng-start-attribute-deriv (rng--ipattern-child ipattern)
-                                         nm))))
+	   (rng-apply-after
+	    `(lambda (p)
+	       (rng-intern-group (list p ,(rng-intern-optional ipattern))))
+	    (rng-start-attribute-deriv (rng-ipattern-get-child ipattern)
+				       nm)))
 	  ((eq type 'after)
-           (let ((nip (rng--ipattern-after ipattern)))
-             (rng-apply-after
-              (lambda (p) (rng-intern-after p nip))
-              (rng-start-attribute-deriv (rng--ipattern-child ipattern)
-                                         nm))))
+	   (rng-apply-after
+	    `(lambda (p)
+	       (rng-intern-after p ,(rng-ipattern-get-after ipattern)))
+	    (rng-start-attribute-deriv (rng-ipattern-get-child ipattern)
+				       nm)))
 	  (t rng-not-allowed-ipattern))))
 
 (defun rng-cons-group-after (x y)
-  (rng-apply-after (lambda (p) (rng-intern-group (cons p y)))
+  (rng-apply-after `(lambda (p) (rng-intern-group (cons p ',y)))
 		   x))
 
 (defun rng-subst-group-after (new old list)
-  (rng-apply-after (lambda (p)
-                     (rng-intern-group (rng-substq p old list)))
+  (rng-apply-after `(lambda (p)
+		      (rng-intern-group (rng-substq p ,old ',list)))
 		   new))
 
 (defun rng-subst-interleave-after (new old list)
-  (rng-apply-after (lambda (p)
-                     (rng-intern-interleave (rng-substq p old list)))
+  (rng-apply-after `(lambda (p)
+		      (rng-intern-interleave (rng-substq p ,old ',list)))
 		   new))
 
 (defun rng-apply-after (f ipattern)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'after)
 	   (rng-intern-after
-	    (rng--ipattern-child ipattern)
-	    (funcall f (rng--ipattern-after ipattern))))
+	    (rng-ipattern-get-child ipattern)
+	    (funcall f
+		     (rng-ipattern-get-after ipattern))))
 	  ((eq type 'choice)
-	   (rng-transform-choice (lambda (x) (rng-apply-after f x))
+	   (rng-transform-choice `(lambda (x) (rng-apply-after ,f x))
 				 ipattern))
 	  (t rng-not-allowed-ipattern))))
 
 (defun rng-start-tag-close-deriv (ipattern)
-  (or (rng--ipattern-memo-start-tag-close-deriv ipattern)
-      (setf (rng--ipattern-memo-start-tag-close-deriv ipattern)
-            (rng-compute-start-tag-close-deriv ipattern))))
+  (or (rng-ipattern-get-memo-start-tag-close-deriv ipattern)
+      (rng-ipattern-set-memo-start-tag-close-deriv
+       ipattern
+       (rng-compute-start-tag-close-deriv ipattern))))
 
 (defconst rng-transform-map
   '((choice . rng-transform-choice)
@@ -994,7 +1025,7 @@ list may contain duplicates."
     (after . rng-transform-after-child)))
 
 (defun rng-compute-start-tag-close-deriv (ipattern)
-  (let* ((type (rng--ipattern-type ipattern)))
+  (let* ((type (rng-ipattern-get-type ipattern)))
     (if (eq type 'attribute)
 	rng-not-allowed-ipattern
       (let ((transform (assq type rng-transform-map)))
@@ -1005,7 +1036,7 @@ list may contain duplicates."
 	  ipattern)))))
 
 (defun rng-ignore-attributes-deriv (ipattern)
-  (let* ((type (rng--ipattern-type ipattern)))
+  (let* ((type (rng-ipattern-get-type ipattern)))
     (if (eq type 'attribute)
 	rng-empty-ipattern
       (let ((transform (assq type rng-transform-map)))
@@ -1016,12 +1047,13 @@ list may contain duplicates."
 	  ipattern)))))
 
 (defun rng-text-only-deriv (ipattern)
-  (or (rng--ipattern-memo-text-only-deriv ipattern)
-      (setf (rng--ipattern-memo-text-only-deriv ipattern)
-            (rng-compute-text-only-deriv ipattern))))
+  (or (rng-ipattern-get-memo-text-only-deriv ipattern)
+      (rng-ipattern-set-memo-text-only-deriv
+       ipattern
+       (rng-compute-text-only-deriv ipattern))))
 
 (defun rng-compute-text-only-deriv (ipattern)
-  (let* ((type (rng--ipattern-type ipattern)))
+  (let* ((type (rng-ipattern-get-type ipattern)))
     (if (eq type 'element)
 	rng-not-allowed-ipattern
       (let ((transform (assq type
@@ -1037,12 +1069,13 @@ list may contain duplicates."
 	  ipattern)))))
 
 (defun rng-mixed-text-deriv (ipattern)
-  (or (rng--ipattern-memo-mixed-text-deriv ipattern)
-      (setf (rng--ipattern-memo-mixed-text-deriv ipattern)
-            (rng-compute-mixed-text-deriv ipattern))))
+  (or (rng-ipattern-get-memo-mixed-text-deriv ipattern)
+      (rng-ipattern-set-memo-mixed-text-deriv
+       ipattern
+       (rng-compute-mixed-text-deriv ipattern))))
 
 (defun rng-compute-mixed-text-deriv (ipattern)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'text) ipattern)
 	  ((eq type 'after)
 	   (rng-transform-after-child 'rng-mixed-text-deriv
@@ -1053,7 +1086,7 @@ list may contain duplicates."
 	  ((eq type 'one-or-more)
 	   (rng-intern-group
 	    (list (rng-mixed-text-deriv
-		   (rng--ipattern-child ipattern))
+		   (rng-ipattern-get-child ipattern))
 		  (rng-intern-optional ipattern))))
 	  ((eq type 'group)
 	   (rng-transform-group-nullable
@@ -1067,38 +1100,39 @@ list may contain duplicates."
 				    (rng-substq new old list)))
 	    ipattern))
 	  ((and (eq type 'data)
-		(not (rng--ipattern-memo-text-typed ipattern)))
+		(not (rng-ipattern-get-memo-text-typed ipattern)))
 	   ipattern)
 	  (t rng-not-allowed-ipattern))))
 
 (defun rng-end-tag-deriv (ipattern)
-  (or (rng--ipattern-memo-end-tag-deriv ipattern)
-      (setf (rng--ipattern-memo-end-tag-deriv ipattern)
-            (rng-compute-end-tag-deriv ipattern))))
+  (or (rng-ipattern-get-memo-end-tag-deriv ipattern)
+      (rng-ipattern-set-memo-end-tag-deriv
+       ipattern
+       (rng-compute-end-tag-deriv ipattern))))
 
 (defun rng-compute-end-tag-deriv (ipattern)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'choice)
 	   (rng-intern-choice
 	    (mapcar 'rng-end-tag-deriv
-		    (rng--ipattern-child ipattern))))
+		    (rng-ipattern-get-child ipattern))))
 	  ((eq type 'after)
-	   (if (rng--ipattern-nullable
-		(rng--ipattern-child ipattern))
-	       (rng--ipattern-after ipattern)
+	   (if (rng-ipattern-get-nullable
+		(rng-ipattern-get-child ipattern))
+	       (rng-ipattern-get-after ipattern)
 	     rng-not-allowed-ipattern))
 	  (t rng-not-allowed-ipattern))))
 
 (defun rng-data-deriv (ipattern value)
   (or (rng-memo-map-get value
-			(rng--ipattern-memo-map-data-deriv ipattern))
+			(rng-ipattern-get-memo-map-data-deriv ipattern))
       (and (rng-memo-map-get
 	    (cons value (rng-namespace-context-get-no-trace))
-	    (rng--ipattern-memo-map-data-deriv ipattern))
+	    (rng-ipattern-get-memo-map-data-deriv ipattern))
 	   (rng-memo-map-get
 	    (cons value (apply (car rng-dt-namespace-context-getter)
 			       (cdr rng-dt-namespace-context-getter)))
-	    (rng--ipattern-memo-map-data-deriv ipattern)))
+	    (rng-ipattern-get-memo-map-data-deriv ipattern)))
       (let* ((used-context (vector nil))
 	     (rng-dt-namespace-context-getter
 	      (cons 'rng-namespace-context-tracer
@@ -1127,65 +1161,66 @@ list may contain duplicates."
 (defun rng-ipattern-memo-data-deriv (ipattern value context deriv)
   (or (memq ipattern rng-const-ipatterns)
       (> (length value) rng-memo-data-deriv-max-length)
-      (setf (rng--ipattern-memo-map-data-deriv ipattern)
-            (rng-memo-map-add (if context (cons value context) value)
-                              deriv
-                              (rng--ipattern-memo-map-data-deriv ipattern)
-                              t)))
+      (rng-ipattern-set-memo-map-data-deriv
+       ipattern
+       (rng-memo-map-add (if context (cons value context) value)
+			 deriv
+			 (rng-ipattern-get-memo-map-data-deriv ipattern)
+			 t)))
   deriv)
 
 (defun rng-compute-data-deriv (ipattern value)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'text) ipattern)
 	  ((eq type 'choice)
-	   (rng-transform-choice (lambda (p) (rng-data-deriv p value))
+	   (rng-transform-choice `(lambda (p) (rng-data-deriv p ,value))
 				 ipattern))
 	  ((eq type 'group)
 	   (rng-transform-group-nullable
-	    (lambda (p) (rng-data-deriv p value))
+	    `(lambda (p) (rng-data-deriv p ,value))
 	    (lambda (x y) (rng-intern-group (cons x y)))
 	    ipattern))
 	  ((eq type 'one-or-more)
 	   (rng-intern-group (list (rng-data-deriv
-				    (rng--ipattern-child ipattern)
+				    (rng-ipattern-get-child ipattern)
 				    value)
 				   (rng-intern-optional ipattern))))
 	  ((eq type 'after)
-	   (let ((child (rng--ipattern-child ipattern)))
-	     (if (or (rng--ipattern-nullable
+	   (let ((child (rng-ipattern-get-child ipattern)))
+	     (if (or (rng-ipattern-get-nullable
 		      (rng-data-deriv child value))
-		     (and (rng--ipattern-nullable child)
+		     (and (rng-ipattern-get-nullable child)
 			  (rng-blank-p value)))
-		 (rng--ipattern-after ipattern)
+		 (rng-ipattern-get-after ipattern)
 	       rng-not-allowed-ipattern)))
 	  ((eq type 'data)
-	   (if (rng-dt-make-value (rng--ipattern-datatype ipattern)
+	   (if (rng-dt-make-value (rng-ipattern-get-datatype ipattern)
 				  value)
 	       rng-empty-ipattern
 	     rng-not-allowed-ipattern))
 	  ((eq type 'data-except)
-	   (if (and (rng-dt-make-value (rng--ipattern-datatype ipattern)
+	   (if (and (rng-dt-make-value (rng-ipattern-get-datatype ipattern)
 				       value)
-		    (not (rng--ipattern-nullable
+		    (not (rng-ipattern-get-nullable
 			  (rng-data-deriv
-			   (rng--ipattern-child ipattern)
+			   (rng-ipattern-get-child ipattern)
 			   value))))
 	       rng-empty-ipattern
 	     rng-not-allowed-ipattern))
 	  ((eq type 'value)
-	   (if (equal (rng-dt-make-value (rng--ipattern-datatype ipattern)
+	   (if (equal (rng-dt-make-value (rng-ipattern-get-datatype ipattern)
 					 value)
-		      (rng--ipattern-value-object ipattern))
+		      (rng-ipattern-get-value-object ipattern))
 	       rng-empty-ipattern
 	     rng-not-allowed-ipattern))
 	  ((eq type 'list)
 	   (let ((tokens (split-string value))
-		 (state (rng--ipattern-child ipattern)))
+		 (state (rng-ipattern-get-child ipattern)))
 	     (while (and tokens
 			 (not (eq state rng-not-allowed-ipattern)))
 	       (setq state (rng-data-deriv state (car tokens)))
 	       (setq tokens (cdr tokens)))
-	     (if (rng--ipattern-nullable state)
+	     (if (rng-ipattern-get-nullable state)
 		 rng-empty-ipattern
 	       rng-not-allowed-ipattern)))
 	  ;; don't think interleave can occur
@@ -1193,7 +1228,7 @@ list may contain duplicates."
 	  (t rng-not-allowed-ipattern))))
 
 (defun rng-transform-multi (f ipattern interner)
-  (let* ((members (rng--ipattern-child ipattern))
+  (let* ((members (rng-ipattern-get-child ipattern))
 	 (transformed (mapcar f members)))
     (if (rng-members-eq members transformed)
 	ipattern
@@ -1209,22 +1244,22 @@ list may contain duplicates."
   (rng-transform-multi f ipattern 'rng-intern-interleave))
 
 (defun rng-transform-one-or-more (f ipattern)
-  (let* ((child (rng--ipattern-child ipattern))
+  (let* ((child (rng-ipattern-get-child ipattern))
 	 (transformed (funcall f child)))
     (if (eq child transformed)
 	ipattern
       (rng-intern-one-or-more transformed))))
 
 (defun rng-transform-after-child (f ipattern)
-  (let* ((child (rng--ipattern-child ipattern))
+  (let* ((child (rng-ipattern-get-child ipattern))
 	 (transformed (funcall f child)))
     (if (eq child transformed)
 	ipattern
       (rng-intern-after transformed
-			(rng--ipattern-after ipattern)))))
+			(rng-ipattern-get-after ipattern)))))
 
 (defun rng-transform-interleave-single (f subster ipattern)
-  (let ((children (rng--ipattern-child ipattern))
+  (let ((children (rng-ipattern-get-child ipattern))
 	found)
     (while (and children (not found))
       (let* ((child (car children))
@@ -1235,7 +1270,7 @@ list may contain duplicates."
 		(funcall subster
 			 transformed
 			 child
-			 (rng--ipattern-child ipattern))))))
+			 (rng-ipattern-get-child ipattern))))))
     (or found
 	rng-not-allowed-ipattern)))
 
@@ -1251,14 +1286,14 @@ nullable and y1 isn't, return a choice
    (rng-transform-group-nullable-gen-choices
     f
     conser
-    (rng--ipattern-child ipattern))))
+    (rng-ipattern-get-child ipattern))))
 
 (defun rng-transform-group-nullable-gen-choices (f conser members)
   (let ((head (car members))
 	(tail (cdr members)))
     (if tail
 	(cons (funcall conser (funcall f head) tail)
-	      (if (rng--ipattern-nullable head)
+	      (if (rng-ipattern-get-nullable head)
 		  (rng-transform-group-nullable-gen-choices f conser tail)
 		nil))
       (list (funcall f head)))))
@@ -1273,11 +1308,11 @@ nullable and y1 isn't, return a choice
 
 
 (defun rng-ipattern-after (ipattern)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'choice)
 	   (rng-transform-choice 'rng-ipattern-after ipattern))
 	  ((eq type 'after)
-	   (rng--ipattern-after ipattern))
+	   (rng-ipattern-get-after ipattern))
 	  ((eq  type 'not-allowed)
 	   ipattern)
 	  (t (error "Internal error in rng-ipattern-after: unexpected type %s" type)))))
@@ -1286,7 +1321,7 @@ nullable and y1 isn't, return a choice
   (rng-intern-after (rng-compile rng-any-content) ipattern))
 
 (defun rng-ipattern-optionalize-elements (ipattern)
-  (let* ((type (rng--ipattern-type ipattern))
+  (let* ((type (rng-ipattern-get-type ipattern))
 	 (transform (assq type rng-transform-map)))
     (cond (transform
 	   (funcall (cdr transform)
@@ -1297,11 +1332,11 @@ nullable and y1 isn't, return a choice
 	  (t ipattern))))
 
 (defun rng-ipattern-empty-before-p (ipattern)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'after)
-	   (eq (rng--ipattern-child ipattern) rng-empty-ipattern))
+	   (eq (rng-ipattern-get-child ipattern) rng-empty-ipattern))
 	  ((eq type 'choice)
-	   (let ((members (rng--ipattern-child ipattern))
+	   (let ((members (rng-ipattern-get-child ipattern))
 		 (ret t))
 	     (while (and members ret)
 	       (or (rng-ipattern-empty-before-p (car members))
@@ -1311,13 +1346,13 @@ nullable and y1 isn't, return a choice
 	  (t nil))))
 
 (defun rng-ipattern-possible-start-tags (ipattern accum)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'after)
 	   (rng-ipattern-possible-start-tags
-	    (rng--ipattern-child ipattern)
+	    (rng-ipattern-get-child ipattern)
 	    accum))
 	  ((memq type '(choice interleave))
-	   (let ((members (rng--ipattern-child ipattern)))
+	   (let ((members (rng-ipattern-get-child ipattern)))
 	     (while members
 	       (setq accum
 		     (rng-ipattern-possible-start-tags (car members)
@@ -1325,34 +1360,34 @@ nullable and y1 isn't, return a choice
 	       (setq members (cdr members))))
 	   accum)
 	  ((eq type 'group)
-	   (let ((members (rng--ipattern-child ipattern)))
+	   (let ((members (rng-ipattern-get-child ipattern)))
 	     (while members
 	       (setq accum
 		     (rng-ipattern-possible-start-tags (car members)
 						       accum))
 	       (setq members
-		     (and (rng--ipattern-nullable (car members))
+		     (and (rng-ipattern-get-nullable (car members))
 			  (cdr members)))))
 	   accum)
 	  ((eq type 'element)
 	   (if (eq (rng-element-get-child ipattern) rng-not-allowed-ipattern)
 	       accum
 	     (rng-name-class-possible-names
-	      (rng--ipattern-name-class ipattern)
+	      (rng-ipattern-get-name-class ipattern)
 	      accum)))
 	  ((eq type 'one-or-more)
 	   (rng-ipattern-possible-start-tags
-	    (rng--ipattern-child ipattern)
+	    (rng-ipattern-get-child ipattern)
 	    accum))
 	  (t accum))))
 
 (defun rng-ipattern-start-tag-possible-p (ipattern)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((memq type '(after one-or-more))
 	   (rng-ipattern-start-tag-possible-p
-	    (rng--ipattern-child ipattern)))
+	    (rng-ipattern-get-child ipattern)))
 	  ((memq type '(choice interleave))
-	   (let ((members (rng--ipattern-child ipattern))
+	   (let ((members (rng-ipattern-get-child ipattern))
 		 (possible nil))
 	     (while (and members (not possible))
 	       (setq possible
@@ -1360,13 +1395,13 @@ nullable and y1 isn't, return a choice
 	       (setq members (cdr members)))
 	     possible))
 	  ((eq type 'group)
-	   (let ((members (rng--ipattern-child ipattern))
+	   (let ((members (rng-ipattern-get-child ipattern))
 		 (possible nil))
 	     (while (and members (not possible))
 	       (setq possible
 		     (rng-ipattern-start-tag-possible-p (car members)))
 	       (setq members
-		     (and (rng--ipattern-nullable (car members))
+		     (and (rng-ipattern-get-nullable (car members))
 			  (cdr members))))
 	     possible))
 	  ((eq type 'element)
@@ -1375,12 +1410,12 @@ nullable and y1 isn't, return a choice
 	  (t nil))))
 
 (defun rng-ipattern-possible-attributes (ipattern accum)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'after)
-	   (rng-ipattern-possible-attributes (rng--ipattern-child ipattern)
+	   (rng-ipattern-possible-attributes (rng-ipattern-get-child ipattern)
 					     accum))
 	  ((memq type '(choice interleave group))
-	   (let ((members (rng--ipattern-child ipattern)))
+	   (let ((members (rng-ipattern-get-child ipattern)))
 	     (while members
 	       (setq accum
 		     (rng-ipattern-possible-attributes (car members)
@@ -1389,21 +1424,21 @@ nullable and y1 isn't, return a choice
 	   accum)
 	  ((eq type 'attribute)
 	   (rng-name-class-possible-names
-	    (rng--ipattern-name-class ipattern)
+	    (rng-ipattern-get-name-class ipattern)
 	    accum))
 	  ((eq type 'one-or-more)
 	   (rng-ipattern-possible-attributes
-	    (rng--ipattern-child ipattern)
+	    (rng-ipattern-get-child ipattern)
 	    accum))
 	  (t accum))))
 
 (defun rng-ipattern-possible-values (ipattern accum)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'after)
-	   (rng-ipattern-possible-values (rng--ipattern-child ipattern)
+	   (rng-ipattern-possible-values (rng-ipattern-get-child ipattern)
 					 accum))
 	  ((eq type 'choice)
-	   (let ((members (rng--ipattern-child ipattern)))
+	   (let ((members (rng-ipattern-get-child ipattern)))
 	     (while members
 	       (setq accum
 		     (rng-ipattern-possible-values (car members)
@@ -1411,18 +1446,18 @@ nullable and y1 isn't, return a choice
 	       (setq members (cdr members))))
 	   accum)
 	  ((eq type 'value)
-	   (let ((value-object (rng--ipattern-value-object ipattern)))
+	   (let ((value-object (rng-ipattern-get-value-object ipattern)))
 	     (if (stringp value-object)
 		 (cons value-object accum)
 	       accum)))
 	  (t accum))))
 
 (defun rng-ipattern-required-element (ipattern)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((memq type '(after one-or-more))
-	   (rng-ipattern-required-element (rng--ipattern-child ipattern)))
+	   (rng-ipattern-required-element (rng-ipattern-get-child ipattern)))
 	  ((eq type 'choice)
-	   (let* ((members (rng--ipattern-child ipattern))
+	   (let* ((members (rng-ipattern-get-child ipattern))
 		  (required (rng-ipattern-required-element (car members))))
 	     (while (and required
 			 (setq members (cdr members)))
@@ -1431,16 +1466,16 @@ nullable and y1 isn't, return a choice
 		   (setq required nil)))
 	     required))
 	  ((eq type 'group)
-	   (let ((members (rng--ipattern-child ipattern))
+	   (let ((members (rng-ipattern-get-child ipattern))
 		 required)
 	     (while (and (not (setq required
 				    (rng-ipattern-required-element
 				     (car members))))
-			 (rng--ipattern-nullable (car members))
+			 (rng-ipattern-get-nullable (car members))
 			 (setq members (cdr members))))
 	     required))
 	  ((eq type 'interleave)
-	   (let ((members (rng--ipattern-child ipattern))
+	   (let ((members (rng-ipattern-get-child ipattern))
 		 required)
 	     (while members
 	       (let ((tem (rng-ipattern-required-element (car members))))
@@ -1456,19 +1491,19 @@ nullable and y1 isn't, return a choice
 			(setq members nil)))))
 	     required))
 	  ((eq type 'element)
-	   (let ((nc (rng--ipattern-name-class ipattern)))
+	   (let ((nc (rng-ipattern-get-name-class ipattern)))
 	     (and (consp nc)
 		  (not (eq (rng-element-get-child ipattern)
 			   rng-not-allowed-ipattern))
 		  nc))))))
 
 (defun rng-ipattern-required-attributes (ipattern accum)
-  (let ((type (rng--ipattern-type ipattern)))
+  (let ((type (rng-ipattern-get-type ipattern)))
     (cond ((eq type 'after)
-	   (rng-ipattern-required-attributes (rng--ipattern-child ipattern)
+	   (rng-ipattern-required-attributes (rng-ipattern-get-child ipattern)
 					     accum))
 	  ((memq type '(interleave group))
-	   (let ((members (rng--ipattern-child ipattern)))
+	   (let ((members (rng-ipattern-get-child ipattern)))
 	     (while members
 	       (setq accum
 		     (rng-ipattern-required-attributes (car members)
@@ -1476,7 +1511,7 @@ nullable and y1 isn't, return a choice
 	       (setq members (cdr members))))
 	   accum)
 	  ((eq type 'choice)
-	   (let ((members (rng--ipattern-child ipattern))
+	   (let ((members (rng-ipattern-get-child ipattern))
 		 in-all in-this new-in-all)
 	     (setq in-all
 		   (rng-ipattern-required-attributes (car members)
@@ -1493,12 +1528,12 @@ nullable and y1 isn't, return a choice
 	       (setq in-all new-in-all))
 	     (append in-all accum)))
 	  ((eq type 'attribute)
-	   (let ((nc (rng--ipattern-name-class ipattern)))
+	   (let ((nc (rng-ipattern-get-name-class ipattern)))
 	     (if (consp nc)
 		 (cons nc accum)
 	       accum)))
 	  ((eq type 'one-or-more)
-	   (rng-ipattern-required-attributes (rng--ipattern-child ipattern)
+	   (rng-ipattern-required-attributes (rng-ipattern-get-child ipattern)
 					     accum))
 	  (t accum))))
 
@@ -1506,7 +1541,14 @@ nullable and y1 isn't, return a choice
   (signal 'rng-compile-error
 	  (list (apply 'format args))))
 
-(define-error 'rng-compile-error "Incorrect schema" 'rng-error)
+(put 'rng-compile-error
+     'error-conditions
+     '(error rng-error rng-compile-error))
+
+(put 'rng-compile-error
+     'error-message
+     "Incorrect schema")
+
 
 ;;; External API
 
@@ -1632,7 +1674,7 @@ for an end-tag is equivalent to empty."
     ns))
 
 (defun rng-match-nullable-p ()
-  (rng--ipattern-nullable rng-match-state))
+  (rng-ipattern-get-nullable rng-match-state))
 
 (defun rng-match-possible-start-tag-names ()
   "Return a list of possible names that would be valid for start-tags.
@@ -1669,15 +1711,16 @@ be exhaustive."
   (rng-ipattern-required-attributes rng-match-state nil))
 
 (defmacro rng-match-save (&rest body)
-  (declare (indent 0) (debug t))
   (let ((state (make-symbol "state")))
     `(let ((,state rng-match-state))
        (unwind-protect
 	   (progn ,@body)
 	 (setq rng-match-state ,state)))))
 
+(put 'rng-match-save 'lisp-indent-function 0)
+(def-edebug-spec rng-match-save t)
+
 (defmacro rng-match-with-schema (schema &rest body)
-  (declare (indent 1) (debug t))
   `(let ((rng-current-schema ,schema)
 	 rng-match-state
 	 rng-compile-table
@@ -1687,6 +1730,9 @@ be exhaustive."
      (rng-compile-maybe-init)
      (setq rng-match-state (rng-compile rng-current-schema))
      ,@body))
+
+(put 'rng-match-with-schema 'lisp-indent-function 1)
+(def-edebug-spec rng-match-with-schema t)
 
 (provide 'rng-match)
 

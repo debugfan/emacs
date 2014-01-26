@@ -1,6 +1,6 @@
 ;;; sendmail.el --- mail sending commands for Emacs
 
-;; Copyright (C) 1985-1986, 1992-1996, 1998, 2000-2014 Free Software
+;; Copyright (C) 1985-1986, 1992-1996, 1998, 2000-2013 Free Software
 ;; Foundation, Inc.
 
 ;; Maintainer: FSF
@@ -1114,7 +1114,6 @@ external program defined by `sendmail-program'."
   (let ((errbuf (if mail-interactive
 		    (generate-new-buffer " sendmail errors")
 		  0))
-        (error nil)
 	(tembuf (generate-new-buffer " sendmail temp"))
 	(multibyte enable-multibyte-characters)
 	(case-fold-search nil)
@@ -1279,13 +1278,10 @@ external program defined by `sendmail-program'."
 		     (exit-value (apply 'call-process-region args)))
 		(cond ((or (null exit-value) (eq 0 exit-value)))
 		      ((numberp exit-value)
-                       (setq error t)
 		       (error "Sending...failed with exit value %d" exit-value))
 		      ((stringp exit-value)
-                       (setq error t)
 		       (error "Sending...terminated by signal: %s" exit-value))
 		      (t
-                       (setq error t)
 		       (error "SENDMAIL-SEND-IT -- fall through: %S" exit-value))))
 	    (or fcc-was-found
 		(error "No recipients")))
@@ -1294,15 +1290,12 @@ external program defined by `sendmail-program'."
 		(goto-char (point-min))
 		(while (re-search-forward "\n\n* *" nil t)
 		  (replace-match "; "))
-		(unless (zerop (buffer-size))
-                  (setq error t)
-                  (error "Sending...failed to %s"
-                         (buffer-substring (point-min) (point-max)))))))
+		(if (not (zerop (buffer-size)))
+		    (error "Sending...failed to %s"
+			   (buffer-substring (point-min) (point-max)))))))
       (kill-buffer tembuf)
-      (if (and (bufferp errbuf)
-               (not error))
-          (kill-buffer errbuf)
-        (switch-to-buffer-other-window errbuf)))))
+      (if (bufferp errbuf)
+	  (kill-buffer errbuf)))))
 
 (autoload 'rmail-output-to-rmail-buffer "rmailout")
 
@@ -1500,9 +1493,6 @@ just append to the file, in Babyl format if necessary."
            (insert "\nMail-Followup-To: "))))
 
 (defun mail-position-on-field (field &optional soft)
-  "Move to the start of the contents of header field FIELD.
-If there is none, insert one, unless SOFT is non-nil.
-If there are multiple FIELD fields, this goes to the first."
   (let (end
 	(case-fold-search t))
     (setq end (mail-header-end))
@@ -1977,7 +1967,7 @@ you can move to one of them and type C-c C-c to recover that one."
 	     (if (not (yes-or-no-p
 		       (format "Recover mail draft from auto save file %s? "
 			       file-name)))
-		 (error "mail-recover canceled")
+		 (error "mail-recover cancelled")
 	       (let ((buffer-read-only nil)
 		     (buffer-coding buffer-file-coding-system)
 		     ;; Auto-save files are written in internal

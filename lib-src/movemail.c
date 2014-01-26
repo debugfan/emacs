@@ -1,7 +1,7 @@
 /* movemail foo bar -- move file foo to file bar,
    locking file foo the way /bin/mail respects.
 
-Copyright (C) 1986, 1992-1994, 1996, 1999, 2001-2014 Free Software
+Copyright (C) 1986, 1992-1994, 1996, 1999, 2001-2013 Free Software
 Foundation, Inc.
 
 This file is part of GNU Emacs.
@@ -65,7 +65,9 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <getopt.h>
 #include <unistd.h>
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
 #include <string.h>
 #include "syswait.h"
 #ifdef MAIL_USE_POP
@@ -95,6 +97,13 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <fcntl.h>
 #endif /* WINDOWSNT */
+
+#ifndef F_OK
+#define F_OK 0
+#define X_OK 1
+#define W_OK 2
+#define R_OK 4
+#endif
 
 #ifdef WINDOWSNT
 #include <sys/locking.h>
@@ -304,21 +313,35 @@ main (int argc, char **argv)
 
 	  memcpy (tempname, inname, inname_dirlen);
 	  strcpy (tempname + inname_dirlen, "EXXXXXX");
-	  desc = mkostemp (tempname, 0);
+#ifdef HAVE_MKSTEMP
+	  desc = mkstemp (tempname);
+#else
+	  mktemp (tempname);
+	  if (!*tempname)
+	    desc = -1;
+	  else
+	    {
+	      unlink (tempname);
+	      desc = open (tempname, O_WRONLY | O_CREAT | O_EXCL, 0600);
+	    }
+#endif
 	  if (desc < 0)
 	    {
-	      int mkostemp_errno = errno;
+	      int mkstemp_errno = errno;
 	      error ("error while creating what would become the lock file",
 		     0, 0);
-	      errno = mkostemp_errno;
+	      errno = mkstemp_errno;
 	      pfatal_with_name (tempname);
 	    }
 	  close (desc);
 
 	  tem = link (tempname, lockname);
 
-	  if (tem < 0 && errno != EEXIST)
-	    pfatal_with_name (lockname);
+#ifdef EPERM
+	  if (tem < 0 && errno == EPERM)
+	    fatal ("Unable to create hard link between %s and %s",
+		   tempname, lockname);
+#endif
 
 	  unlink (tempname);
 	  if (tem >= 0)
@@ -369,9 +392,13 @@ main (int argc, char **argv)
       if (indesc < 0)
 	pfatal_with_name (inname);
 
-      /* Make sure the user can read the output file.  */
-      umask (umask (0) & 0377);
-
+#ifdef BSD_SYSTEM
+      /* In case movemail is setuid to root, make sure the user can
+	 read the output file.  */
+      /* This is desirable for all systems
+	 but I don't want to assume all have the umask system call */
+      umask (umask (0) & 0333);
+#endif /* BSD_SYSTEM */
       outdesc = open (outname, O_WRONLY | O_CREAT | O_EXCL, 0666);
       if (outdesc < 0)
 	pfatal_with_name (outname);
@@ -415,10 +442,22 @@ main (int argc, char **argv)
 	 for certain failure codes.  */
       if (status < 0)
 	{
-	  if (++lockcount <= 5 && (errno == EAGAIN || errno == EBUSY))
+	  if (++lockcount <= 5)
 	    {
-	      sleep (1);
-	      goto retry_lock;
+#ifdef EAGAIN
+	      if (errno == EAGAIN)
+		{
+		  sleep (1);
+		  goto retry_lock;
+		}
+#endif
+#ifdef EBUSY
+	      if (errno == EBUSY)
+		{
+		  sleep (1);
+		  goto retry_lock;
+		}
+#endif
 	    }
 
 	  pfatal_with_name (inname);
@@ -455,8 +494,10 @@ main (int argc, char **argv)
 	  }
       }
 
-      if (fsync (outdesc) != 0 && errno != EINVAL)
+#ifdef BSD_SYSTEM
+      if (fsync (outdesc) < 0)
 	pfatal_and_delete (outname);
+#endif
 
       /* Prevent symlink attacks truncating other users' mailboxes */
       if (setregid (-1, real_gid) < 0)
@@ -648,6 +689,7 @@ popmail (char *mailbox, char *outfile, int preserve, char *password, int reverse
   register int i;
   int mbfi;
   FILE *mbf;
+  char *getenv (const char *);
   popserver server;
   int start, end, increment;
   char *user, *hostname;
@@ -737,14 +779,21 @@ popmail (char *mailbox, char *outfile, int preserve, char *password, int reverse
 	}
     }
 
-  if (fsync (mbfi) != 0 && errno != EINVAL)
+  /* On AFS, a call to write only modifies the file in the local
+   *     workstation's AFS cache.  The changes are not written to the server
+   *      until a call to fsync or close is made.  Users with AFS home
+   *      directories have lost mail when over quota because these checks were
+   *      not made in previous versions of movemail. */
+
+#ifdef BSD_SYSTEM
+  if (fsync (mbfi) < 0)
     {
       error ("Error in fsync: %s", strerror (errno), 0);
-      close (mbfi);
       return EXIT_FAILURE;
     }
+#endif
 
-  if (close (mbfi) != 0)
+  if (close (mbfi) == -1)
     {
       error ("Error in close: %s", strerror (errno), 0);
       return EXIT_FAILURE;

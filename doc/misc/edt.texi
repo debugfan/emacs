@@ -1,12 +1,11 @@
 \input texinfo
 @setfilename ../../info/edt
 @settitle EDT Emulation for Emacs
-@documentencoding UTF-8
 
 @copying
 This file documents the EDT emulation package for Emacs.
 
-Copyright @copyright{} 1986, 1992, 1994--1995, 1999--2014
+Copyright @copyright{} 1986, 1992, 1994--1995, 1999--2013
 Free Software Foundation, Inc.
 
 @quotation
@@ -790,13 +789,13 @@ so the above directions may need some modification if your site has such
 special needs.
 
 @menu
-* Init file::            Creating your own @file{edt-user.el} file.
+* edt-user.el::          Creating your own @file{edt-user.el} file.
 * Words::                Specifying word entities.
 * Control keys::         Enabling EDT control key sequence bindings.
 * Scroll margins::       Setting scroll margins.
 @end menu
 
-@node Init file
+@node edt-user.el
 @section Creating your own @file{edt-user.el} File
 
 A sample @file{edt-user.el} file is provided in the Emacs @file{etc/}

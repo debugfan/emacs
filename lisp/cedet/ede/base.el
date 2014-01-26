@@ -1,6 +1,6 @@
 ;;; ede/base.el --- Baseclasses for EDE.
 
-;; Copyright (C) 2010-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2013 Free Software Foundation, Inc.
 
 ;; Author: Eric M. Ludlam <zappo@gnu.org>
 
@@ -135,9 +135,7 @@ other desired outcome.")
    (dirinode :documentation "The inode id for :directory.")
    (file :type string
 	 :initarg :file
-	 :documentation "The File uniquely tagging this project instance.
-For some project types, this will be the file that stores the project configuration.
-In other projects types, this file is merely a unique identifier to this type of project.")
+	 :documentation "File name where this project is stored.")
    (rootproject ; :initarg - no initarg, don't save this slot!
     :initform nil
     :type (or null ede-project-placeholder-child)
@@ -306,8 +304,7 @@ All specific project types must derive from this project."
 ;;
 (defcustom ede-project-placeholder-cache-file
   (locate-user-emacs-file "ede-projects.el" ".projects.ede")
-  "File containing the list of projects EDE has viewed.
-If set to nil, then the cache is not saved."
+  "File containing the list of projects EDE has viewed."
   :group 'ede
   :type 'file)
 
@@ -317,49 +314,48 @@ If set to nil, then the cache is not saved."
 (defun ede-save-cache ()
   "Save a cache of EDE objects that Emacs has seen before."
   (interactive)
-  (when ede-project-placeholder-cache-file
-    (let ((p ede-projects)
-	  (c ede-project-cache-files)
-	  (recentf-exclude '( (lambda (f) t) ))
-	  )
-      (condition-case nil
-	  (progn
-	    (set-buffer (find-file-noselect ede-project-placeholder-cache-file t))
-	    (erase-buffer)
-	    (insert ";; EDE project cache file.
+  (let ((p ede-projects)
+	(c ede-project-cache-files)
+	(recentf-exclude '( (lambda (f) t) ))
+	)
+    (condition-case nil
+	(progn
+	  (set-buffer (find-file-noselect ede-project-placeholder-cache-file t))
+	  (erase-buffer)
+	  (insert ";; EDE project cache file.
 ;; This contains a list of projects you have visited.\n(")
-	    (while p
-	      (when (and (car p) (ede-project-p p))
-		(let ((f (oref (car p) file)))
-		  (when (file-exists-p f)
-		    (insert "\n  \"" f "\""))))
-	      (setq p (cdr p)))
-	    (while c
-	      (insert "\n \"" (car c) "\"")
-	      (setq c (cdr c)))
-	    (insert "\n)\n")
-	    (condition-case nil
-		(save-buffer 0)
-	      (error
-	       (message "File %s could not be saved."
-			ede-project-placeholder-cache-file)))
-	    (kill-buffer (current-buffer))
-	    )
-	(error
-	 (message "File %s could not be read."
-		  ede-project-placeholder-cache-file))
+	  (while p
+	    (when (and (car p) (ede-project-p p))
+	      (let ((f (oref (car p) file)))
+		(when (file-exists-p f)
+		  (insert "\n  \"" f "\""))))
+	    (setq p (cdr p)))
+	  (while c
+	    (insert "\n \"" (car c) "\"")
+	    (setq c (cdr c)))
+	  (insert "\n)\n")
+	  (condition-case nil
+	      (save-buffer 0)
+	    (error
+	     (message "File %s could not be saved."
+		      ede-project-placeholder-cache-file)))
+	  (kill-buffer (current-buffer))
+	  )
+      (error
+       (message "File %s could not be read."
+	       	ede-project-placeholder-cache-file))
 
-	))))
+      )))
 
 (defun ede-load-cache ()
   "Load the cache of EDE projects."
   (save-excursion
-    (let ((cachebuffer (get-buffer-create "*ede cache*")))
+    (let ((cachebuffer nil))
       (condition-case nil
-	  (with-current-buffer cachebuffer
-	    (erase-buffer)
-	    (when (file-exists-p ede-project-placeholder-cache-file)
-	      (insert-file-contents ede-project-placeholder-cache-file))
+	  (progn
+	    (setq cachebuffer
+		  (find-file-noselect ede-project-placeholder-cache-file t))
+	    (set-buffer cachebuffer)
 	    (goto-char (point-min))
 	    (let ((c (read (current-buffer)))
 		  (new nil)
@@ -612,28 +608,6 @@ instead of the current project."
 	      (while (ede-parent-project cp)
 		(setq cp (ede-parent-project cp)))
 	      cp)))))
-
-
-;;; Utility functions
-;;
-
-(defun ede-normalize-file/directory (this project-file-name)
-  "Fills :directory or :file slots if they're missing in project THIS.
-The other slot will be used to calculate values.
-PROJECT-FILE-NAME is a name of project file (short name, like 'pom.xml', etc."
-  (when (and (or (not (slot-boundp this :file))
-		 (not (oref this :file)))
-	     (slot-boundp this :directory)
-	     (oref this :directory))
-    (oset this :file (expand-file-name project-file-name (oref this :directory))))
-  (when (and (or (not (slot-boundp this :directory))
-		 (not (oref this :directory)))
-	     (slot-boundp this :file)
-	     (oref this :file))
-    (oset this :directory (file-name-directory (oref this :file))))
-  )
-
-
 
 
 ;;; Hooks & Autoloads

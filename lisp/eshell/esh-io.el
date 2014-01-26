@@ -1,6 +1,6 @@
-;;; esh-io.el --- I/O management  -*- lexical-binding:t -*-
+;;; esh-io.el --- I/O management
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -58,11 +58,9 @@
 
 (provide 'esh-io)
 
-(require 'esh-arg)
-(require 'esh-util)
-
 (eval-when-compile
-  (require 'cl-lib))
+  (require 'cl-lib)
+  (require 'eshell))
 
 (defgroup eshell-io nil
   "Eshell's I/O management code provides a scheme for treating many
@@ -117,8 +115,6 @@ This is basically a speed enhancement, to avoid blocking the Lisp code
 from executing while Emacs is redisplaying."
   :type 'integer
   :group 'eshell-io)
-
-(defvar x-select-enable-clipboard)	; term/common-win
 
 (defcustom eshell-virtual-targets
   '(("/dev/eshell" eshell-interactive-print nil)
@@ -181,8 +177,8 @@ not be added to this variable."
   (make-local-variable 'eshell-current-redirections)
   (add-hook 'eshell-pre-rewrite-command-hook
 	    'eshell-strip-redirections nil t)
-  (add-function :filter-return (local 'eshell-post-rewrite-command-function)
-                #'eshell--apply-redirections))
+  (add-hook 'eshell-post-rewrite-command-hook
+	    'eshell-apply-redirections nil t))
 
 (defun eshell-parse-redirection ()
   "Parse an output redirection, such as '2>'."
@@ -225,27 +221,28 @@ not be added to this variable."
     (setq eshell-current-redirections
 	  (cdr eshell-current-redirections))))
 
-(defun eshell--apply-redirections (cmd)
+(defun eshell-apply-redirections (cmdsym)
   "Apply any redirection which were specified for COMMAND."
   (if eshell-current-redirections
-      `(progn
-         ,@eshell-current-redirections
-         ,cmd)
-    cmd))
+      (set cmdsym
+	   (append (list 'progn)
+		   eshell-current-redirections
+		   (list (symbol-value cmdsym))))))
 
 (defun eshell-create-handles
-  (stdout output-mode &optional stderr error-mode)
+  (standard-output output-mode &optional standard-error error-mode)
   "Create a new set of file handles for a command.
 The default location for standard output and standard error will go to
-STDOUT and STDERR, respectively.
+STANDARD-OUTPUT and STANDARD-ERROR, respectively.
 OUTPUT-MODE and ERROR-MODE are either `overwrite', `append' or `insert';
 a nil value of mode defaults to `insert'."
   (let ((handles (make-vector eshell-number-of-handles nil))
-	(output-target (eshell-get-target stdout output-mode))
-        (error-target (eshell-get-target stderr error-mode)))
+	(output-target (eshell-get-target standard-output output-mode))
+	(error-target (eshell-get-target standard-error error-mode)))
     (aset handles eshell-output-handle (cons output-target 1))
-    (aset handles eshell-error-handle
-          (cons (if stderr error-target output-target) 1))
+    (if standard-error
+	(aset handles eshell-error-handle (cons error-target 1))
+      (aset handles eshell-error-handle (cons output-target 1)))
     handles))
 
 (defun eshell-protect-handles (handles)
@@ -467,8 +464,6 @@ after all printing is over with no argument."
   "Output OBJECT followed by a newline to the standard output handle."
   (eshell-print object)
   (eshell-print "\n"))
-
-(autoload 'eshell-output-filter "esh-mode")
 
 (defun eshell-output-object-to-target (object target)
   "Insert OBJECT into TARGET.

@@ -1,5 +1,5 @@
 /* Header for charset handler.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
      2005, 2006, 2007, 2008, 2009, 2010, 2011
      National Institute of Advanced Industrial Science and Technology (AIST)
@@ -30,6 +30,9 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include <verify.h>
 
 INLINE_HEADER_BEGIN
+#ifndef CHARSET_INLINE
+# define CHARSET_INLINE INLINE
+#endif
 
 /* Index to arguments of Fdefine_charset_internal.  */
 
@@ -171,23 +174,23 @@ struct charset
   unsigned char *code_space_mask;
 
   /* True if there's no gap in code-points.  */
-  bool_bf code_linear_p : 1;
+  unsigned code_linear_p : 1;
 
   /* True if the charset is treated as 96 chars in ISO-2022
      as opposed to 94 chars.  */
-  bool_bf iso_chars_96 : 1;
+  unsigned iso_chars_96 : 1;
 
   /* True if the charset is compatible with ASCII.  */
-  bool_bf ascii_compatible_p : 1;
+  unsigned ascii_compatible_p : 1;
 
   /* True if the charset is supplementary.  */
-  bool_bf supplementary_p : 1;
+  unsigned supplementary_p : 1;
 
   /* True if all the code points are representable by Lisp_Int.  */
-  bool_bf compact_codes_p : 1;
+  unsigned compact_codes_p : 1;
 
   /* True if the charset is unified with Unicode.  */
-  bool_bf unified_p : 1;
+  unsigned unified_p : 1;
 
   /* ISO final byte of the charset: 48..127.  It may be -1 if the
      charset doesn't conform to ISO-2022.  */
@@ -208,7 +211,7 @@ struct charset
   unsigned min_code, max_code;
 
   /* Offset value used by macros CODE_POINT_TO_INDEX and
-      INDEX_TO_CODE_POINT.  */
+      INDEX_TO_CODE_POINT. .  */
   unsigned char_index_offset;
 
   /* Minimum and Maximum character codes of the charset.  If the
@@ -328,7 +331,7 @@ extern int emacs_mule_charset[256];
 #define CHARSET_DEUNIFIER(charset)	\
   (CHARSET_ATTR_DEUNIFIER (CHARSET_ATTRIBUTES (charset)))
 
-INLINE void
+CHARSET_INLINE void
 set_charset_attr (struct charset *charset, enum charset_attr_index idx,
 		  Lisp_Object val)
 {
@@ -344,7 +347,7 @@ set_charset_attr (struct charset *charset, enum charset_attr_index idx,
   do {								\
     if (! SYMBOLP (x) || CHARSET_SYMBOL_HASH_INDEX (x) < 0)	\
       wrong_type_argument (Qcharsetp, (x));			\
-  } while (false)
+  } while (0)
 
 
 /* Check if X is a valid charset symbol.  If valid, set ID to the id
@@ -357,7 +360,7 @@ set_charset_attr (struct charset *charset, enum charset_attr_index idx,
       wrong_type_argument (Qcharsetp, (x));				\
     id = XINT (AREF (HASH_VALUE (XHASH_TABLE (Vcharset_hash_table), idx), \
 		     charset_id));					\
-  } while (false)
+  } while (0)
 
 
 /* Check if X is a valid charset symbol.  If valid, set ATTR to the
@@ -366,7 +369,7 @@ set_charset_attr (struct charset *charset, enum charset_attr_index idx,
   do {									\
     if (!SYMBOLP (x) || NILP (attr = CHARSET_SYMBOL_ATTRIBUTES (x)))	\
       wrong_type_argument (Qcharsetp, (x));				\
-  } while (false)
+  } while (0)
 
 
 #define CHECK_CHARSET_GET_CHARSET(x, charset)	\
@@ -374,7 +377,7 @@ set_charset_attr (struct charset *charset, enum charset_attr_index idx,
     int csid;					\
     CHECK_CHARSET_GET_ID (x, csid);		\
     charset = CHARSET_FROM_ID (csid);		\
-  } while (false)
+  } while (0)
 
 
 /* Lookup Vcharset_ordered_list and return the first charset that
@@ -383,7 +386,7 @@ set_charset_attr (struct charset *charset, enum charset_attr_index idx,
   ((c) < 0x80 ? CHARSET_FROM_ID (charset_ascii)	\
    : char_charset ((c), Qnil, NULL))
 
-#if false
+#if 0
 /* Char-table of charset-sets.  Each element is a bool vector indexed
    by a charset ID.  */
 extern Lisp_Object Vchar_charset_set;
@@ -452,7 +455,7 @@ extern Lisp_Object charset_work;
      : encode_char (charset, c))))
 
 
-/* Set to true when a charset map is loaded to warn that a buffer text
+/* Set to 1 when a charset map is loaded to warn that a buffer text
    and a string data may be relocated.  */
 extern bool charset_map_loaded;
 
@@ -489,7 +492,7 @@ extern int iso_charset_table[ISO_MAX_DIMENSION][ISO_MAX_CHARS][ISO_MAX_FINAL];
       (fast_map)[(c) >> 10] |= 1 << (((c) >> 7) & 7);		\
     else							\
       (fast_map)[((c) >> 15) + 62] |= 1 << (((c) >> 12) & 7);	\
-  } while (false)
+  } while (0)
 
 
 

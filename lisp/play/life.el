@@ -1,6 +1,6 @@
 ;;; life.el --- John Horton Conway's `Life' game for GNU Emacs
 
-;; Copyright (C) 1988, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1988, 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: Kyle Jones <kyleuunet.uu.net>
 ;; Maintainer: FSF
@@ -122,32 +122,33 @@ generations (this defaults to 1)."
   (life-setup)
   (catch 'life-exit
     (while t
-      (let ((inhibit-quit t)
-	    (inhibit-read-only t))
+      (let ((inhibit-quit t))
 	(life-display-generation sleeptime)
 	(life-grim-reaper)
 	(life-expand-plane-if-needed)
 	(life-increment-generation)))))
 
-(define-derived-mode life-mode special-mode "Life"
-  "Major mode for the buffer of `life'."
-  (setq-local case-fold-search nil)
-  (setq-local truncate-lines t)
-  (setq-local show-trailing-whitespace nil)
-  (setq-local life-current-generation 0)
-  (setq-local life-generation-string "0")
-  (setq-local mode-line-buffer-identification '("Life: generation "
-                                                life-generation-string))
-  (setq-local fill-column (1- (window-width)))
-  (setq-local life-window-start 1)
-  (buffer-disable-undo))
+(defalias 'life-mode 'life)
+(put 'life-mode 'mode-class 'special)
 
 (defun life-setup ()
-  (switch-to-buffer (get-buffer-create "*Life*") t)
-  (erase-buffer)
-  (life-mode)
-  ;; stuff in the random pattern
-  (let ((inhibit-read-only t))
+  (let (n)
+    (switch-to-buffer (get-buffer-create "*Life*") t)
+    (erase-buffer)
+    (kill-all-local-variables)
+    (setq case-fold-search nil
+	  mode-name "Life"
+	  major-mode 'life-mode
+	  truncate-lines t
+          show-trailing-whitespace nil
+	  life-current-generation 0
+	  life-generation-string "0"
+	  mode-line-buffer-identification '("Life: generation "
+					    life-generation-string)
+	  fill-column (1- (window-width))
+	  life-window-start 1)
+    (buffer-disable-undo (current-buffer))
+    ;; stuff in the random pattern
     (life-insert-random-pattern)
     ;; make sure (life-life-char) is used throughout
     (goto-char (point-min))
@@ -155,18 +156,18 @@ generations (this defaults to 1)."
       (replace-match (life-life-string) t t))
     ;; center the pattern horizontally
     (goto-char (point-min))
-    (let ((n (/ (- fill-column (line-end-position)) 2)))
-      (while (not (eobp))
-	(indent-to n)
-	(forward-line)))
+    (setq n (/ (- fill-column (line-end-position)) 2))
+    (while (not (eobp))
+      (indent-to n)
+      (forward-line))
     ;; center the pattern vertically
-    (let ((n (/ (- (1- (window-height))
-		   (count-lines (point-min) (point-max)))
-		2)))
-      (goto-char (point-min))
-      (newline n)
-      (goto-char (point-max))
-      (newline n))
+    (setq n (/ (- (1- (window-height))
+		  (count-lines (point-min) (point-max)))
+	       2))
+    (goto-char (point-min))
+    (newline n)
+    (goto-char (point-max))
+    (newline n)
     ;; pad lines out to fill-column
     (goto-char (point-min))
     (while (not (eobp))
@@ -289,7 +290,8 @@ generations (this defaults to 1)."
   (life-display-generation 0)
   (signal 'life-extinct nil))
 
-(define-error 'life-extinct "All life has perished" 'quit) ;FIXME: quit really?
+(put 'life-extinct 'error-conditions '(life-extinct quit))
+(put 'life-extinct 'error-message "All life has perished")
 
 (provide 'life)
 

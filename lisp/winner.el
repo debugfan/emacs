@@ -1,6 +1,6 @@
 ;;; winner.el --- Restore old window configurations
 
-;; Copyright (C) 1997-1998, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1997-1998, 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: Ivar Rummelhoff <ivarru@math.uio.no>
 ;; Created: 27 Feb 1997
@@ -45,8 +45,10 @@
                         (if (featurep 'xemacs)
                             `(if ,store (zmacs-activate-region)
                                (zmacs-deactivate-region))
-                          `(if ,store (activate-mark) (deactivate-mark))))))
-  (region-active-p))
+                          `(setq mark-active ,store)))))
+  (if (boundp 'mark-active)
+      mark-active
+    (region-active-p)))
 
 (defalias 'winner-edges
   (if (featurep 'xemacs) 'window-pixel-edges 'window-edges))
@@ -227,7 +229,8 @@ You may want to include buffer names such as *Help*, *Apropos*,
       (set-window-configuration winconf))
     (cond
      ((window-live-p chosen) (select-window chosen))
-     ((window-minibuffer-p) (other-window 1)))
+     ((window-minibuffer-p (selected-window))
+      (other-window 1)))
     (when (/= minisize (window-height miniwin))
       (with-selected-window miniwin
         (setf (window-height) minisize)))))
@@ -341,18 +344,31 @@ You may want to include buffer names such as *Help*, *Apropos*,
     map)
   "Keymap for Winner mode.")
 
+;; Check if `window-configuration-change-hook' is working.
+(defun winner-hook-installed-p ()
+  (save-window-excursion
+    (let ((winner-var nil)
+	  (window-configuration-change-hook
+	   '((lambda () (setq winner-var t)))))
+      (split-window)
+      winner-var)))
+
 
 ;;;###autoload
 (define-minor-mode winner-mode nil :global t ; let d-m-m make the doc
   (if winner-mode
       (progn
-        (add-hook 'window-configuration-change-hook 'winner-change-fun)
-        (add-hook 'post-command-hook 'winner-save-old-configurations)
+        (if (winner-hook-installed-p)
+            (progn
+              (add-hook 'window-configuration-change-hook 'winner-change-fun)
+              (add-hook 'post-command-hook 'winner-save-old-configurations))
+          (add-hook 'post-command-hook 'winner-save-conditionally))
         (add-hook 'minibuffer-setup-hook 'winner-save-unconditionally)
         (setq winner-modified-list (frame-list))
         (winner-save-old-configurations))
     (remove-hook 'window-configuration-change-hook 'winner-change-fun)
     (remove-hook 'post-command-hook 'winner-save-old-configurations)
+    (remove-hook 'post-command-hook 'winner-save-conditionally)
     (remove-hook 'minibuffer-setup-hook 'winner-save-unconditionally)))
 
 ;; Inspired by undo (simple.el)
@@ -380,7 +396,7 @@ In other words, \"undo\" changes in window configuration."
  	(setq winner-undone-data (list (winner-win-data))))
       (cl-incf winner-undo-counter)	; starting at 1
       (when (and (winner-undo-this)
- 		 (not (window-minibuffer-p)))
+ 		 (not (window-minibuffer-p (selected-window))))
  	(message "Winner undo (%d / %d)"
  		 winner-undo-counter
  		 (1- (ring-length winner-pending-undo-ring)))))))

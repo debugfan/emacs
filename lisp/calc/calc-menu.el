@@ -1,6 +1,6 @@
 ;;; calc-menu.el --- a menu for Calc
 
-;; Copyright (C) 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2013 Free Software Foundation, Inc.
 
 ;; Maintainer: Jay Belanger <jay.p.belanger@gmail.com>
 
@@ -1634,9 +1634,7 @@
            (Info-goto-node "Help Commands"))])
   "Menu for Calc's help functions.")
 
-;; Needed to make this file loadable in isolation.
-;; Another option would be to use calc-load-hook.
-(require 'calc)
+(defvar calc-mode-map)
 
 (easy-menu-define
   calc-menu

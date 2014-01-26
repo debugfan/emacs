@@ -1,4 +1,4 @@
-Copyright (C) 2001-2014 Free Software Foundation, Inc.
+Copyright (C) 2001-2013 Free Software Foundation, Inc.
 See the end of the file for license conditions.
 
 			   Emacs for Windows
@@ -18,10 +18,20 @@ See the end of the file for license conditions.
   this file as part of the Emacs source distribution, please read
   those 2 files and not this one.
 
+  Answers to frequently asked questions, and further information about
+  this port of GNU Emacs and related software packages can be found via
+  http:
+
+	http://www.gnu.org/software/emacs/windows/
+
 * Preliminaries
 
-  Along with this file should be four subdirectories (bin, libexec,
-  share, and var).
+  Along with this file should be six subdirectories (bin, etc, info,
+  lisp, leim, site-lisp).  If you have downloaded the barebin
+  distribution, then it will contain only the bin directory and the
+  built in documentation in etc/DOC-X, the rest of the subdirectories
+  are in the src distribution, which the barebin distribution is
+  designed to be used with.
 
 * Setting up Emacs
 
@@ -95,24 +105,16 @@ See the end of the file for license conditions.
   + addpm.exe - A basic installer that creates Start Menu icons for Emacs.
     Running this is optional.
 
+  + cmdproxy.exe - Used internally by Emacs to work around problems with
+    the native shells in various versions of Windows.
+
   + ctags.exe, etags.exe - Tools for generating tag files.  See the
     `Tags' node of the Emacs manual.
 
   + ebrowse.exe - A tool for generating C++ browse information.  See the
     `Ebrowse' manual.
 
-  Several helper programs are in a version-specific subdirectory of
-  the libexec directory:
-
-  + cmdproxy.exe - Used internally by Emacs to work around problems with
-    the native shells in various versions of Windows.
-
-  + ddeclient.exe - A tool for interacting with DDE servers.  To be
-    invoked as "ddeclient SERVER [TOPIC]", where SERVER is the DDE
-    server name, and sends each line of its standard input to the DDE
-    server using the DdeClientTransaction API.  This program is
-    supposed to be invoked via the 'call-process-region' Emacs
-    primitive.
+  + ddeclient.exe - A tool for interacting with DDE servers.
 
   + hexl.exe - A tool for producing hex dumps of binary files.  See the
     `Editing Binary Files' node of the Emacs manual.
@@ -121,27 +123,12 @@ See the end of the file for license conditions.
     a mail spool or POP server to a local user mailbox.  See the
     `Movemail' node of the Emacs manual.
 
-  + profile.exe - A helper program that generates periodic events for
-    profiling Emacs Lisp code.
-
-  + update-game-score.exe - A utility for updating the score files of
-    Emacs games.
-
 * Image support
 
   Emacs has built in support for XBM and PPM/PGM/PBM images, and the
-  libraries.  These libraries are all available on the following sites:
-
-  1. http://sourceforge.net/projects/ezwinports/files/
-     -- leaner, more up-to-date builds, only for 32-bit Emacs
-  2. http://www.gtk.org/download/win32.php
-     http://www.gtk.org/download/win64.php
-     -- GTK project site; offers much fatter builds, but includes 64-bit
-        DLLs
-  3. GnuWin32 project -- very old builds, not recommended
-
-  Emacs will find these libraries if the directory they are installed
-  in is on the PATH.
+  libXpm library is bundled, providing XPM support (required for color
+  toolbar icons and splash screen).  Source for libXpm should be available
+  on the same place as you got this binary distribution from.
 
   Emacs can also support some other image formats with appropriate
   libraries.  These libraries are all available as part of GTK
@@ -150,7 +137,7 @@ See the end of the file for license conditions.
   they are installed in is on the PATH.
 
       PNG: requires the PNG reference library 1.4 or later, which will
-      be named libpngNN.dll or libpngNN-NN.dll.  LibPNG requires zlib,
+      be named libpng14.dll or libpng14-14.dll.  LibPNG requires zlib,
       which should come from the same source as you got libpng.
       Starting with Emacs 23.3, the precompiled Emacs binaries are
       built with libpng 1.4.x and later, and are incompatible with
@@ -165,14 +152,7 @@ See the end of the file for license conditions.
       or libtiff.dll.
 
       GIF: requires libungif or giflib 4.1 or later, which will be
-      called libgif-6.dll, giflib4.dll, libungif4.dll or libungif.dll.
-
-      SVG: requires librsvg 2.x whose DLL will be called
-      librsvg-2-2.dll.  SVG also requires several dependency DLLs,
-      such as Pango, Cairo, and Glib, all of them found on the
-      above-mentioned sites.  If you download from the ezwinports
-      site, you need only librsvg-2.nn.x-bin.zip, it comes with all
-      the other dependencies bundled.
+      called giflib4.dll, libungif4.dll or libungif.dll.
 
    If you have image support DLLs under different names, customize the
    value of `dynamic-library-alist'.
@@ -189,8 +169,8 @@ See the end of the file for license conditions.
   the relevant DLLs during startup; failure to do so is not an error,
   but GnuTLS won't be available to the running session.
 
-  You can get pre-built binaries (including any dependency DLLs) at
-  http://sourceforge.net/projects/ezwinports/files/.
+  You can get pre-built binaries (including any required DLL and the
+  header files) at http://sourceforge.net/projects/ezwinports/files/.
 
 * libxml2 support
 
@@ -257,10 +237,14 @@ See the end of the file for license conditions.
 
 * Further information
 
-  The FAQ for the MS Windows port of Emacs is distributed with Emacs
-  (info manual "efaq-w32"), and also available at
+  If you have access to the World Wide Web, I would recommend pointing
+  your favorite web browser to the following document (if you haven't
+  already):
 
-        http://www.gnu.org/software/emacs/manual/efaq-w32.html
+	http://www.gnu.org/software/emacs/windows/
+
+  This document serves as an FAQ and a source for further information
+  about the Windows port and related software packages.
 
   In addition to the FAQ, there is a mailing list for discussing issues
   related to the Windows port of Emacs.  For information about the

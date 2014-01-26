@@ -1,6 +1,6 @@
-;;; tq.el --- utility to maintain a transaction queue  -*- lexical-binding:t -*-
+;;; tq.el --- utility to maintain a transaction queue
 
-;; Copyright (C) 1985-1987, 1992, 2001-2014 Free Software Foundation,
+;; Copyright (C) 1985-1987, 1992, 2001-2013 Free Software Foundation,
 ;; Inc.
 
 ;; Author: Scott Draves <spot@cs.cmu.edu>
@@ -87,7 +87,8 @@ to a tcp server on another machine."
 				     (process-name process)))))))
     (buffer-disable-undo (tq-buffer tq))
     (set-process-filter process
-			(lambda (_proc string) (tq-filter tq string)))
+			`(lambda (proc string)
+			   (tq-filter ',tq string)))
     tq))
 
 (defun tq-queue-add (tq question re closure fn)

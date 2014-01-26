@@ -1,6 +1,6 @@
 ;;; gnus-vm.el --- vm interface for Gnus
 
-;; Copyright (C) 1994-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1994-2013 Free Software Foundation, Inc.
 
 ;; Author: Per Persson <pp@gnu.ai.mit.edu>
 ;; Keywords: news, mail
@@ -35,10 +35,12 @@
 (require 'gnus-msg)
 
 (eval-when-compile
-  (require 'cl))
-
-(autoload 'vm-mode "vm")
-(autoload 'vm-save-message "vm")
+  (require 'cl)
+  (autoload 'vm-mode "vm")
+  (autoload 'vm-save-message "vm")
+  (autoload 'vm-forward-message "vm")
+  (autoload 'vm-reply "vm")
+  (autoload 'vm-mail "vm"))
 
 (defvar gnus-vm-inhibit-window-system nil
   "Inhibit loading `win-vm' if using a window-system.
@@ -49,8 +51,10 @@ Has to be set before gnus-vm is loaded.")
     (when window-system
       (require 'win-vm))))
 
+(when (not (featurep 'vm))
+  (load "vm"))
+
 (defun gnus-vm-make-folder (&optional buffer)
-  (require 'vm)
   (let ((article (or buffer (current-buffer)))
 	(tmp-folder (generate-new-buffer " *tmp-folder*"))
 	(start (point-min))
@@ -83,7 +87,6 @@ save those articles instead."
 
 (defun gnus-summary-save-in-vm (&optional folder)
   (interactive)
-  (require 'vm)
   (setq folder
 	(gnus-read-save-file-name
 	 "Save %s in VM folder:" folder

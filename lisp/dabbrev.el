@@ -1,6 +1,6 @@
 ;;; dabbrev.el --- dynamic abbreviation package  -*- lexical-binding: t -*-
 
-;; Copyright (C) 1985-1986, 1992, 1994, 1996-1997, 2000-2014 Free
+;; Copyright (C) 1985-1986, 1992, 1994, 1996-1997, 2000-2013 Free
 ;; Software Foundation, Inc.
 
 ;; Author: Don Morrison
@@ -285,7 +285,6 @@ A mode setting this variable should make it buffer local."
 If this variable is non-nil, dabbrev will only look in these buffers.
 It will not even look in the current buffer if it is not a member of
 this list."
-  :type '(choice (const nil) (repeat :tag "List of buffers" string))
   :group 'dabbrev)
 
 ;;----------------------------------------------------------------
@@ -458,7 +457,7 @@ See also `dabbrev-abbrev-char-regexp' and \\[dabbrev-completion]."
 	       (markerp dabbrev--last-abbrev-location)
 	       (marker-position dabbrev--last-abbrev-location)
 	       (or (eq last-command this-command)
-		   (and (window-minibuffer-p)
+		   (and (window-minibuffer-p (selected-window))
 			(= dabbrev--last-abbrev-location
 			   (point)))))
 	  ;; Find a different expansion for the same abbrev as last time.
@@ -794,7 +793,7 @@ of the start of the occurrence."
     ;; In a minibuffer, search the buffer it was activated from,
     ;; first after the minibuffer itself.  Unless we aren't supposed
     ;; to search the current buffer either.
-    (if (and (window-minibuffer-p)
+    (if (and (window-minibuffer-p (selected-window))
 	     (not dabbrev-search-these-buffers-only))
 	(setq list
 	      (cons (dabbrev--minibuffer-origin)

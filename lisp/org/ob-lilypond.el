@@ -1,6 +1,6 @@
 ;;; ob-lilypond.el --- org-babel functions for lilypond evaluation
 
-;; Copyright (C) 2010-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2013 Free Software Foundation, Inc.
 
 ;; Author: Martyn Jago
 ;; Keywords: babel language, literate programming
@@ -30,7 +30,10 @@
 ;; http://lilypond.org/manuals.html
 
 ;;; Code:
+
 (require 'ob)
+(require 'ob-eval)
+(require 'ob-tangle)
 (require 'outline)
 (defalias 'lilypond-mode 'LilyPond-mode)
 
@@ -152,11 +155,7 @@ specific arguments to =org-babel-tangle="
       " -dbackend=eps "
       "-dno-gs-load-fonts "
       "-dinclude-eps-fonts "
-      (or (cdr (assoc (file-name-extension out-file)
-		      '(("pdf" . "--pdf ")
-			("ps" . "--ps ")
-			("png" . "--png "))))
-	  "--png ")
+      "--png "
       "--output="
       (file-name-sans-extension out-file)
       " "
@@ -200,6 +199,7 @@ FILE-NAME is full path to lilypond (.ly) file"
   (let ((arg-1 (ly-determine-ly-path)) ;program
         (arg-2 nil)                    ;infile
         (arg-3 "*lilypond*")           ;buffer
+        (arg-4 t)                      ;display
 	(arg-4 t)                      ;display
 	(arg-5 (if ly-gen-png  "--png"  "")) ;&rest...
 	(arg-6 (if ly-gen-html "--html" ""))

@@ -1,5 +1,5 @@
 /* Deal with the X Resource Manager.
-   Copyright (C) 1990, 1993-1994, 2000-2014 Free Software Foundation,
+   Copyright (C) 1990, 1993-1994, 2000-2013 Free Software Foundation,
    Inc.
 
 Author: Joseph Arceneaux
@@ -42,12 +42,18 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #ifdef HAVE_PWD_H
 #include <pwd.h>
 #endif
+#include <sys/stat.h>
 
 #ifdef USE_MOTIF
 /* For Vdouble_click_time.  */
 #include "keyboard.h"
 #endif
 
+char *x_get_string_resource (XrmDatabase rdb, const char *name,
+			     const char *class);
+static int file_p (const char *filename);
+
+
 /* X file search path processing.  */
 
 
@@ -71,8 +77,17 @@ x_get_customization_string (XrmDatabase db, const char *name,
   sprintf (full_class, "%s.%s", class, "Customization");
 
   result = x_get_string_resource (db, full_name, full_class);
-  return result ? xstrdup (result) : NULL;
+
+  if (result)
+    {
+      char *copy = xmalloc (strlen (result) + 1);
+      strcpy (copy, result);
+      return copy;
+    }
+  else
+    return 0;
 }
+
 
 /* Expand all the Xt-style %-escapes in STRING, whose length is given
    by STRING_LEN.  Here are the escapes we're supposed to recognize:
@@ -94,7 +109,7 @@ x_get_customization_string (XrmDatabase db, const char *name,
 		database associated with display.
 		(This is x_customization_string.)
 
-   Return the resource database if its file was read successfully, and
+   Return the expanded file name if it exists and is readable, and
    refers to %L only when the LANG environment variable is set, or
    otherwise provided by X.
 
@@ -103,11 +118,10 @@ x_get_customization_string (XrmDatabase db, const char *name,
 
    Return NULL otherwise.  */
 
-static XrmDatabase
-magic_db (const char *string, ptrdiff_t string_len, const char *class,
-	  const char *escaped_suffix)
+static char *
+magic_file_p (const char *string, ptrdiff_t string_len, const char *class,
+	      const char *escaped_suffix)
 {
-  XrmDatabase db;
   char *lang = getenv ("LANG");
 
   ptrdiff_t path_size = 100;
@@ -179,7 +193,7 @@ magic_db (const char *string, ptrdiff_t string_len, const char *class,
       else
 	next = p, next_len = 1;
 
-      /* Do we have room for this component followed by a '\0'?  */
+      /* Do we have room for this component followed by a '\0' ?  */
       if (path_size - path_len <= next_len)
 	{
 	  if (min (PTRDIFF_MAX, SIZE_MAX) / 2 - 1 - path_len < next_len)
@@ -204,9 +218,14 @@ magic_db (const char *string, ptrdiff_t string_len, const char *class,
     }
 
   path[path_len] = '\0';
-  db = XrmGetFileDatabase (path);
-  xfree (path);
-  return db;
+
+  if (! file_p (path))
+    {
+      xfree (path);
+      return NULL;
+    }
+
+  return path;
 }
 
 
@@ -234,7 +253,20 @@ gethomedir (void)
 
   copy = xmalloc (strlen (ptr) + 2);
   strcpy (copy, ptr);
-  return strcat (copy, "/");
+  strcat (copy, "/");
+
+  return copy;
+}
+
+
+static int
+file_p (const char *filename)
+{
+  struct stat status;
+
+  return (access (filename, 4) == 0             /* exists and is readable */
+	  && stat (filename, &status) == 0	/* get the status */
+	  && (S_ISDIR (status.st_mode)) == 0);	/* not a directory */
 }
 
 
@@ -242,7 +274,7 @@ gethomedir (void)
    after expanding the %-escapes.  Return 0 if we didn't find any, and
    the path name of the one we found otherwise.  */
 
-static XrmDatabase
+static char *
 search_magic_path (const char *search_path, const char *class,
 		   const char *escaped_suffix)
 {
@@ -255,16 +287,18 @@ search_magic_path (const char *search_path, const char *class,
 
       if (p > s)
 	{
-	  XrmDatabase db = magic_db (s, p - s, class, escaped_suffix);
-	  if (db)
-	    return db;
+	  char *path = magic_file_p (s, p - s, class, escaped_suffix);
+	  if (path)
+	    return path;
 	}
       else if (*p == ':')
 	{
-	  static char const ns[] = "%N%S";
-	  XrmDatabase db = magic_db (ns, strlen (ns), class, escaped_suffix);
-	  if (db)
-	    return db;
+	  char *path;
+
+	  s = "%N%S";
+	  path = magic_file_p (s, strlen (s), class, escaped_suffix);
+	  if (path)
+	    return path;
 	}
 
       if (*p == ':')
@@ -279,12 +313,21 @@ search_magic_path (const char *search_path, const char *class,
 static XrmDatabase
 get_system_app (const char *class)
 {
+  XrmDatabase db = NULL;
   const char *path;
+  char *p;
 
   path = getenv ("XFILESEARCHPATH");
   if (! path) path = PATH_X_DEFAULTS;
 
-  return search_magic_path (path, class, 0);
+  p = search_magic_path (path, class, 0);
+  if (p)
+    {
+      db = XrmGetFileDatabase (p);
+      xfree (p);
+    }
+
+  return db;
 }
 
 
@@ -298,40 +341,35 @@ get_fallback (Display *display)
 static XrmDatabase
 get_user_app (const char *class)
 {
-  XrmDatabase db = 0;
   const char *path;
+  char *file = 0;
+  char *free_it = 0;
 
   /* Check for XUSERFILESEARCHPATH.  It is a path of complete file
      names, not directories.  */
-  path = getenv ("XUSERFILESEARCHPATH");
-  if (path)
-    db = search_magic_path (path, class, 0);
+  if (((path = getenv ("XUSERFILESEARCHPATH"))
+       && (file = search_magic_path (path, class, 0)))
 
-  if (! db)
-    {
       /* Check for APPLRESDIR; it is a path of directories.  In each,
 	 we have to search for LANG/CLASS and then CLASS.  */
-      path = getenv ("XAPPLRESDIR");
-      if (path)
-	{
-	  db = search_magic_path (path, class, "/%L/%N");
-	  if (!db)
-	    db = search_magic_path (path, class, "/%N");
-	}
-    }
+      || ((path = getenv ("XAPPLRESDIR"))
+	  && ((file = search_magic_path (path, class, "/%L/%N"))
+	      || (file = search_magic_path (path, class, "/%N"))))
 
-  if (! db)
-    {
       /* Check in the home directory.  This is a bit of a hack; let's
 	 hope one's home directory doesn't contain any %-escapes.  */
-      char *home = gethomedir ();
-      db = search_magic_path (home, class, "%L/%N");
-      if (! db)
-	db = search_magic_path (home, class, "%N");
-      xfree (home);
+      || (free_it = gethomedir (),
+	  ((file = search_magic_path (free_it, class, "%L/%N"))
+	   || (file = search_magic_path (free_it, class, "%N")))))
+    {
+      XrmDatabase db = XrmGetFileDatabase (file);
+      xfree (file);
+      xfree (free_it);
+      return db;
     }
 
-  return db;
+  xfree (free_it);
+  return NULL;
 }
 
 
@@ -590,7 +628,7 @@ x_get_string_resource (XrmDatabase rdb, const char *name, const char *class)
   if (x_get_resource (rdb, name, class, x_rm_string, &value))
     return (char *) value.addr;
 
-  return 0;
+  return (char *) 0;
 }
 
 /* Stand-alone test facilities.  */
@@ -619,7 +657,10 @@ member (char *elt, List list)
 static void
 fatal (char *msg, char *prog)
 {
-  fprintf (stderr, msg, prog);
+  if (errno)
+    perror (prog);
+
+  (void) fprintf (stderr, msg, prog);
   exit (1);
 }
 
@@ -640,7 +681,10 @@ main (int argc, char **argv)
     displayname = "localhost:0.0";
 
   lp = member ("-xrm", arg_list);
-  resource_string = NIL (lp) ? 0 : car (cdr (lp));
+  if (! NIL (lp))
+    resource_string = car (cdr (lp));
+  else
+    resource_string = (char *) 0;
 
   lp = member ("-c", arg_list);
   if (! NIL (lp))

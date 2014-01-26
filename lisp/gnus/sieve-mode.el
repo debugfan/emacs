@@ -1,6 +1,6 @@
 ;;; sieve-mode.el --- Sieve code editing commands for Emacs
 
-;; Copyright (C) 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: Simon Josefsson <simon@josefsson.org>
 
@@ -131,17 +131,14 @@
   (eval-when-compile
     (list
      ;; control commands
-     (cons (regexp-opt '("require" "if" "else" "elsif" "stop")
-                       'words)
+     (cons (regexp-opt '("require" "if" "else" "elsif" "stop"))
 	   'sieve-control-commands-face)
      ;; action commands
-     (cons (regexp-opt '("fileinto" "redirect" "reject" "keep" "discard")
-                       'words)
+     (cons (regexp-opt '("fileinto" "redirect" "reject" "keep" "discard"))
 	   'sieve-action-commands-face)
      ;; test commands
      (cons (regexp-opt '("address" "allof" "anyof" "exists" "false"
-			 "true" "header" "not" "size" "envelope")
-                       'words)
+			 "true" "header" "not" "size" "envelope"))
 	   'sieve-test-commands-face)
      (cons "\\Sw+:\\sw+"
 	   'sieve-tagged-arguments-face))))

@@ -1,6 +1,6 @@
 ;;; gnus-html.el --- Render HTML in a buffer.
 
-;; Copyright (C) 2010-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2013 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: html, web
@@ -28,10 +28,6 @@
 
 ;;; Code:
 
-;; For Emacs <22.2 and XEmacs.
-(eval-and-compile
-  (unless (fboundp 'declare-function) (defmacro declare-function (&rest r))))
-
 (eval-when-compile (require 'cl))
 
 (require 'gnus-art)
@@ -49,10 +45,7 @@
   "Time used to determine if we should use images from the cache."
   :version "24.1"
   :group 'gnus-art
-  ;; FIXME hardly the friendliest type.  The allowed value is actually
-  ;; any time value, but we are assuming no-one cares about USEC and
-  ;; PSEC here.  It would be better to eg make it a number of minutes.
-  :type '(list integer integer))
+  :type 'integer)
 
 (defcustom gnus-html-image-automatic-caching t
   "Whether automatically cache retrieve images."
@@ -143,8 +136,7 @@ CHARS is a regexp-like character alternative (e.g., \"[)$]\")."
 		 (charset (mail-content-type-get (mm-handle-type handle)
 						 'charset)))
 	    (when (and charset
-		       (setq charset (mm-charset-to-coding-system
-				      charset nil t))
+		       (setq charset (mm-charset-to-coding-system charset))
 		       (not (eq charset 'ascii)))
 	      (insert (prog1
 			  (mm-decode-coding-string (buffer-string) charset)
@@ -442,9 +434,6 @@ Return a string with image data."
      ;; Aimed height
      (truncate (* gnus-max-image-proportion
                   (- (nth 3 edges) (nth 1 edges)))))))
-
-;; Behind display-graphic-p test.
-(declare-function image-size "image.c" (spec &optional pixels frame))
 
 (defun gnus-html-put-image (data url &optional alt-text)
   "Put an image with DATA from URL and optional ALT-TEXT."

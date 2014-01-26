@@ -1,9 +1,9 @@
-;;; eudc.el --- Emacs Unified Directory Client -*- coding: utf-8 -*-
+;;; eudc.el --- Emacs Unified Directory Client
 
-;; Copyright (C) 1998-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1998-2013 Free Software Foundation, Inc.
 
 ;; Author: Oscar Figueiredo <oscar@cpe.fr>
-;; Maintainer: Pavel JanÃ­k <Pavel@Janik.cz>
+;; Maintainer: Pavel Janík <Pavel@Janik.cz>
 ;; Keywords: comm
 
 ;; This file is part of GNU Emacs.
@@ -518,12 +518,12 @@ otherwise they are formatted according to `eudc-user-attribute-names-alist'."
 	   precords))
 	(insert "\n")
 	(widget-create 'push-button
-		       :notify (lambda (&rest _ignore)
+		       :notify (lambda (&rest ignore)
 				 (eudc-query-form))
 		       "New query")
 	(widget-insert " ")
 	(widget-create 'push-button
-		       :notify (lambda (&rest _ignore)
+		       :notify (lambda (&rest ignore)
 				 (kill-this-buffer))
 		       "Quit")
 	(eudc-mode)
@@ -652,7 +652,7 @@ Each copy is added a new field containing one of the values of FIELD."
     result))
 
 
-(define-derived-mode eudc-mode special-mode "EUDC"
+(defun eudc-mode ()
   "Major mode used in buffers displaying the results of directory queries.
 There is no sense in calling this command from a buffer other than
 one containing the results of a directory query.
@@ -663,9 +663,15 @@ These are the special commands of EUDC mode:
     n -- Move to next record.
     p -- Move to previous record.
     b -- Insert record at point into the BBDB database."
+  (interactive)
+  (kill-all-local-variables)
+  (setq major-mode 'eudc-mode)
+  (setq mode-name "EUDC")
+  (use-local-map eudc-mode-map)
   (if (not (featurep 'xemacs))
       (easy-menu-define eudc-emacs-menu eudc-mode-map "" (eudc-menu))
-    (setq mode-popup-menu (eudc-menu))))
+    (setq mode-popup-menu (eudc-menu)))
+  (run-mode-hooks 'eudc-mode-hook))
 
 ;;}}}
 
@@ -989,17 +995,17 @@ queries the server for the existing fields and displays a corresponding form."
 	  fields)
     (widget-insert "\n\n")
     (widget-create 'push-button
-		   :notify (lambda (&rest _ignore)
+		   :notify (lambda (&rest ignore)
 			     (eudc-process-form))
 		   "Query Server")
     (widget-insert " ")
     (widget-create 'push-button
-		   :notify (lambda (&rest _ignore)
+		   :notify (lambda (&rest ignore)
 			     (eudc-query-form))
 		   "Reset Form")
     (widget-insert " ")
     (widget-create 'push-button
-		   :notify (lambda (&rest _ignore)
+		   :notify (lambda (&rest ignore)
 			     (kill-this-buffer))
 		   "Quit")
     (goto-char pt)
@@ -1078,7 +1084,7 @@ queries the server for the existing fields and displays a corresponding form."
 (defun eudc-move-to-next-record ()
   "Move to next record, in a buffer displaying directory query results."
   (interactive)
-  (if (not (derived-mode-p 'eudc-mode))
+  (if (not (eq major-mode 'eudc-mode))
       (error "Not in a EUDC buffer")
     (let ((pt (next-overlay-change (point))))
       (if (< pt (point-max))
@@ -1088,7 +1094,7 @@ queries the server for the existing fields and displays a corresponding form."
 (defun eudc-move-to-previous-record ()
   "Move to previous record, in a buffer displaying directory query results."
   (interactive)
-  (if (not (derived-mode-p 'eudc-mode))
+  (if (not (eq major-mode 'eudc-mode))
       (error "Not in a EUDC buffer")
     (let ((pt (previous-overlay-change (point))))
       (if (> pt (point-min))
@@ -1116,7 +1122,7 @@ queries the server for the existing fields and displays a corresponding form."
 	  (overlay-get (car (overlays-at (point))) 'eudc-record))
      :help "Insert record at point into the BBDB database"]
     ["Insert All Records into BBDB" eudc-batch-export-records-to-bbdb
-     (and (derived-mode-p 'eudc-mode)
+     (and (eq major-mode 'eudc-mode)
 	  (or (featurep 'bbdb)
 	      (prog1 (locate-library "bbdb") (message ""))))
      :help "Insert all the records returned by a directory query into BBDB"]

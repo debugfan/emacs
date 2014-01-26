@@ -1,6 +1,6 @@
 ;;; minibuf-eldef.el --- Only show defaults in prompts when applicable  -*- lexical-binding: t -*-
 ;;
-;; Copyright (C) 2000-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2000-2013 Free Software Foundation, Inc.
 ;;
 ;; Author: Miles Bader <miles@gnu.org>
 ;; Keywords: convenience
@@ -38,7 +38,6 @@
 (defun minibuffer-default--in-prompt-regexps ()
   `(("\\( (default\\(?: is\\)? \\(.*\\))\\):? \\'"
      1 ,(if minibuffer-eldef-shorten-default " [\\2]"))
-    ("([^(]+?\\(, default\\(?: is\\)? \\(.*\\)\\)):? \\'" 1)
     ("\\( \\[.*\\]\\):? *\\'" 1)))
 
 (defcustom minibuffer-eldef-shorten-default nil
@@ -153,11 +152,15 @@ been set up by `minibuf-eldef-setup-minibuffer'."
 	      (and (= (point-max) minibuf-eldef-initial-buffer-length)
 		   (string-equal (minibuffer-contents-no-properties)
 				 minibuf-eldef-initial-input)))
-    ;; Swap state.
+    ;; swap state
     (setq minibuf-eldef-showing-default-in-prompt
 	  (not minibuf-eldef-showing-default-in-prompt))
-    (overlay-put minibuf-eldef-overlay 'invisible
-                 (not minibuf-eldef-showing-default-in-prompt))))
+    (cond (minibuf-eldef-showing-default-in-prompt
+	   (overlay-put minibuf-eldef-overlay 'invisible nil)
+	   (overlay-put minibuf-eldef-overlay 'intangible nil))
+	  (t
+	   (overlay-put minibuf-eldef-overlay 'invisible t)
+	   (overlay-put minibuf-eldef-overlay 'intangible t)))))
 
 
 ;;;###autoload

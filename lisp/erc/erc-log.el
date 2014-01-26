@@ -1,6 +1,6 @@
 ;;; erc-log.el --- Logging facilities for ERC.
 
-;; Copyright (C) 2003-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2003-2013 Free Software Foundation, Inc.
 
 ;; Author: Lawrence Mitchell <wence@gmx.li>
 ;; Maintainer: FSF
@@ -93,7 +93,9 @@
 ;;; Code:
 
 (require 'erc)
-(eval-when-compile (require 'erc-networks))
+(eval-when-compile
+  (require 'erc-networks)
+  (require 'cl))
 
 (defgroup erc-log nil
   "Logging facilities for ERC."
@@ -202,7 +204,6 @@ If you set this to nil, you may want to enable both
 
 This should ideally, be a \"catch-all\" coding system, like
 `emacs-mule', or `iso-2022-7bit'."
-  :type 'coding-system
   :group 'erc-log)
 
 (defcustom erc-log-filter-function nil
@@ -379,8 +380,6 @@ This function is a possible value for `erc-generate-log-file-name-function'."
     ;; we need a make-safe-file-name function.
     (convert-standard-filename file)))
 
-(declare-function erc-network-name "erc-networks" ())
-
 (defun erc-generate-log-file-name-network (buffer target nick server port)
   "Generates a log-file name using the network name rather than server name.
 This results in a file name of the form #channel!nick@network.txt.
@@ -430,8 +429,7 @@ You can save every individual message by putting this function on
 					file t 'nomessage))))
 		  (let ((coding-system-for-write coding-system))
 		    (write-region start end file t 'nomessage))))
-	      (if (and erc-truncate-buffer-on-save
-		       (called-interactively-p 'interactive))
+	      (if (and erc-truncate-buffer-on-save (interactive-p))
 		  (progn
 		    (let ((inhibit-read-only t)) (erase-buffer))
 		    (move-marker erc-last-saved-position (point-max))

@@ -1,6 +1,6 @@
 ;;; calc-keypd.el --- mouse-capable keypad input for Calc
 
-;; Copyright (C) 1990-1993, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1990-1993, 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: David Gillespie <daveg@synaptics.com>
 ;; Maintainer: Jay Belanger <jay.p.belanger@gmail.com>
@@ -349,7 +349,8 @@
 			 (if (> (length (car key)) cwid)
 			     (substring (car key) 0 cwid)
 			   (car key))))
-		 (wid (length name)))
+		 (wid (length name))
+		 (pad (- cwid (/ wid 2))))
 	    (insert (make-string (/ (- cwid wid) 2) 32)
 		    name
 		    (make-string (/ (- cwid wid -1) 2) 32)
@@ -398,6 +399,7 @@
 		      inv calc-inverse-flag)
 		calc-hyperbolic-flag))
 	 (invhyp t)
+	 (menu (symbol-value (nth calc-keypad-menu calc-keypad-menus)))
 	 (input calc-keypad-input)
 	 (iexpon (and input
 		      (or (string-match "\\*[0-9]+\\.\\^" input)
@@ -533,22 +535,19 @@
 
 (defun calc-keypad-left-click (event)
   "Handle a left-button mouse click in Calc Keypad window."
-  ;; FIXME: Why not use "@e" instead to select the buffer?
   (interactive "e")
   (with-current-buffer calc-keypad-buffer
     (goto-char (posn-point (event-start event)))
     (calc-keypad-press)))
 
-(defun calc-keypad-right-click (_event)
+(defun calc-keypad-right-click (event)
   "Handle a right-button mouse click in Calc Keypad window."
-  ;; FIXME: Why not use "@e" instead to select the buffer?
   (interactive "e")
   (with-current-buffer calc-keypad-buffer
     (calc-keypad-menu)))
 
-(defun calc-keypad-middle-click (_event)
+(defun calc-keypad-middle-click (event)
   "Handle a middle-button mouse click in Calc Keypad window."
-  ;; FIXME: Why not use "@e" instead to select the buffer?
   (interactive "e")
   (with-current-buffer calc-keypad-buffer
     (calc-keypad-menu-back)))
@@ -589,6 +588,7 @@
 (defun calc-keypad-execute ()
   (interactive)
   (let* ((prompt "Calc keystrokes: ")
+	 (flush 'x-flush-mouse-queue)
 	 (prefix nil)
 	 keys cmd)
     (save-excursion
@@ -605,9 +605,10 @@
 		   (progn
 		     (setq last-command-event (aref keys (1- (length keys))))
 		     (command-execute cmd)
-		     (setq prefix t
+		     (setq flush 'not-any-more
+			   prefix t
 			   prompt (concat prompt (key-description keys) " ")))
-		 nil))))  ; skip mouse-up event
+		 (eq cmd flush)))))  ; skip mouse-up event
     (message "")
     (if (commandp cmd)
 	(command-execute cmd)

@@ -1,10 +1,9 @@
 \input texinfo  @c -*-texinfo-*-
 @setfilename ../../info/ada-mode
 @settitle Ada Mode
-@documentencoding UTF-8
 
 @copying
-Copyright @copyright{} 1999--2014 Free Software Foundation, Inc.
+Copyright @copyright{} 1999--2013 Free Software Foundation, Inc.
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document
@@ -38,7 +37,7 @@ modify this GNU manual.''
 
 @contents
 
-@node Top
+@node Top, Overview, (dir), (dir)
 @top Ada Mode
 
 @ifnottex
@@ -65,7 +64,7 @@ modify this GNU manual.''
 @end menu
 
 
-@node Overview
+@node Overview, Installation, Top, Top
 @chapter Overview
 
 The Emacs mode for programming in Ada helps the user in understanding
@@ -97,7 +96,7 @@ and other GNAT commands.
 See the Emacs info manual, section 'Running Debuggers Under Emacs',
 for general information on debugging.
 
-@node Installation
+@node Installation, Customization, Overview, Top
 @chapter Installation
 
 Ada mode is part of the standard Emacs distribution; if you use that,
@@ -137,7 +136,7 @@ GNAT-specific).
 
 @end itemize
 
-@node Customization
+@node Customization, Compiling Executing, Installation, Top
 @chapter Customizing Ada mode
 
 Here we assume you are familiar with setting variables in Emacs,
@@ -176,7 +175,7 @@ See the Emacs help for each of these variables for more information.
 * Other customization::
 @end menu
 
-@node Non-standard file names
+@node Non-standard file names, Other compiler, Customization, Customization
 @section Non-standard file names
 
 By default, Ada mode is configured to use the GNAT file naming
@@ -218,7 +217,7 @@ rewrite the function @code{ada-make-filename-from-adaname}. Doing that
 is beyond the scope of this manual; see the current definitions in
 @file{ada-mode.el} and @file{ada-xref.el} for examples.
 
-@node Other compiler
+@node Other compiler, Other customization, Non-standard file names, Customization
 @section Other compiler
 
 By default, Ada mode is configured to use the Gnu Ada compiler GNAT.
@@ -228,7 +227,7 @@ used to run that compiler, either in lisp variables or in Emacs
 Ada mode project files. See @ref{Project file variables} for the list
 of project variables, and the corresponding lisp variables.
 
-@node Other customization
+@node Other customization,  , Other compiler, Customization
 @section Other customization
 
 All user-settable Ada mode variables can be set via the menu
@@ -246,7 +245,7 @@ and the syntax to set a variable is the following:
 (setq variable-name value)
 @end example
 
-@node Compiling Executing
+@node Compiling Executing, Project files, Customization, Top
 @chapter Compiling Executing
 
 Ada projects can be compiled, linked, and executed using commands on
@@ -264,7 +263,7 @@ file variables referenced here.
 * Compiler errors::
 @end menu
 
-@node Compile commands
+@node Compile commands, Compiler errors, Compiling Executing, Compiling Executing
 @section Compile commands
 
 Here are the commands for building and using an Ada project, as
@@ -347,7 +346,7 @@ Invoke @samp{Ada | Project | Load}, and load a project file that specifies @code
 
 @end enumerate
 
-@node Compiler errors
+@node Compiler errors,  , Compile commands, Compiling Executing
 @section Compiler errors
 
 The @code{Check file}, @code{Compile file}, and @code{Build} commands
@@ -367,7 +366,7 @@ Some error messages might also include references to other files. These
 references are also clickable in the same way, or put point after the
 line number and press @key{RET}.
 
-@node Project files
+@node Project files, Compiling Examples, Compiling Executing, Top
 @chapter Project files
 
 An Emacs Ada mode project file specifies what directories hold sources
@@ -386,7 +385,7 @@ an Emacs Ada mode project file.
 * Project file variables::
 @end menu
 
-@node Project File Overview
+@node Project File Overview, GUI Editor, Project files, Project files
 @section Project File Overview
 
 Project files have a simple syntax; they may be edited directly. Each
@@ -451,7 +450,7 @@ file extension; if it is @code{.gpr}, the file is treated as a GNAT
 project file. Any other extension is treated as an Emacs Ada mode
 project file.
 
-@node GUI Editor
+@node GUI Editor, Project file variables, Project File Overview, Project files
 @section GUI Editor
 
 The project file editor is invoked with the menu @samp{Ada | Projects
@@ -462,7 +461,7 @@ modification using the @samp{[save]} button at the bottom of the
 buffer, or the @kbd{C-x C-s} binding. To cancel your modifications,
 kill the buffer or click on the @samp{[cancel]} button.
 
-@node Project file variables
+@node Project file variables,  , GUI Editor, Project files
 @section Project file variables
 
 The following variables can be defined in a project file; some can
@@ -649,7 +648,7 @@ commands and source navigation.
 
 @end table
 
-@node Compiling Examples
+@node Compiling Examples, Moving Through Ada Code, Project files, Top
 @chapter Compiling Examples
 
 We present several small projects, and walk thru the process of
@@ -671,7 +670,7 @@ website mentioned in @xref{Installation}.
 * Use multiple GNAT project files::
 @end menu
 
-@node No project files
+@node No project files, Set compiler options, Compiling Examples, Compiling Examples
 @section No project files
 This example uses no project files.
 
@@ -837,7 +836,7 @@ Invoke @samp{Ada | Project | Load}, and load a project file that specifies @code
 
 @end enumerate
 
-@node Set compiler options
+@node Set compiler options, Set source search path, No project files, Compiling Examples
 @section Set compiler options
 
 This example illustrates using an Emacs Ada mode project file to set a
@@ -899,7 +898,7 @@ used to set the compiler options.
 Fixing the error, linking and running the code proceed as in @ref{No
 project files}.
 
-@node Set source search path
+@node Set source search path, Use GNAT project file, Set compiler options, Compiling Examples
 @section Set source search path
 
 In this example, we show how to deal with files in more than one
@@ -983,7 +982,7 @@ compiler error message.
 Fixing the error, linking and running the code proceed as in @ref{No
 project files}.
 
-@node Use GNAT project file
+@node Use GNAT project file, Use multiple GNAT project files, Set source search path, Compiling Examples
 @section Use GNAT project file
 
 In this example, we show how to use a GNAT project file, with no Ada
@@ -1062,7 +1061,7 @@ set the compiler options.
 Fixing the error, linking and running the code proceed as in @ref{No
 project files}.
 
-@node Use multiple GNAT project files
+@node Use multiple GNAT project files,  , Use GNAT project file, Compiling Examples
 @section Use multiple GNAT project files
 
 In this example, we show how to use multiple GNAT project files,
@@ -1126,7 +1125,7 @@ Now type @kbd{C-x `}. @file{Example_4/hello_pkg.adb} is shown,
 demonstrating that @file{hello_5.gpr} and @file{hello_4.gpr} are being
 used to set the compilation search path.
 
-@node Moving Through Ada Code
+@node Moving Through Ada Code, Identifier completion, Compiling Examples, Top
 @chapter Moving Through Ada Code
 
 There are several easy to use commands to navigate through Ada code. All
@@ -1180,7 +1179,7 @@ If the @code{ada-xref-create-ali} variable is non-@code{nil}, Emacs
 will try to run GNAT for you whenever cross-reference information is
 needed, and is older than the current source file.
 
-@node Identifier completion
+@node Identifier completion, Automatic Smart Indentation, Moving Through Ada Code, Top
 @chapter Identifier completion
 
 Emacs and Ada mode provide two general ways for the completion of
@@ -1225,7 +1224,7 @@ Complete current identifier using cross-reference information.
 Complete identifier using buffer information (not Ada-specific).
 @end table
 
-@node Automatic Smart Indentation
+@node Automatic Smart Indentation, Formatting Parameter Lists, Identifier completion, Top
 @chapter Automatic Smart Indentation
 
 Ada mode comes with a full set of rules for automatic indentation. You
@@ -1302,7 +1301,7 @@ Indent the current line and display the name of the variable used for
 indentation.
 @end table
 
-@node Formatting Parameter Lists
+@node Formatting Parameter Lists, Automatic Casing, Automatic Smart Indentation, Top
 @chapter Formatting Parameter Lists
 
 @table @kbd
@@ -1315,7 +1314,7 @@ This aligns the declarations on the colon (@samp{:}) separating
 argument names and argument types, and aligns the @code{in},
 @code{out} and @code{in out} keywords.
 
-@node Automatic Casing
+@node Automatic Casing, Statement Templates, Formatting Parameter Lists, Top
 @chapter Automatic Casing
 
 Casing of identifiers, attributes and keywords is automatically
@@ -1404,7 +1403,7 @@ Rereads the exception dictionary from the file
 @code{ada-case-exception-file} (@code{ada-case-read-exceptions}).
 @end table
 
-@node Statement Templates
+@node Statement Templates, Comment Handling, Automatic Casing, Top
 @chapter Statement Templates
 
 Templates are defined for most Ada statements, using the Emacs
@@ -1495,7 +1494,7 @@ exception (@code{ada-exception}).
 type (@code{ada-type}).
 @end table
 
-@node Comment Handling
+@node Comment Handling, GNU Free Documentation License, Statement Templates, Top
 @chapter Comment Handling
 
 By default, comment lines get indented like Ada code. There are a few
@@ -1514,11 +1513,11 @@ Uncomment the selected region
 autofill the current comment.
 @end table
 
-@node GNU Free Documentation License
+@node GNU Free Documentation License, Index, Comment Handling, Top
 @appendix GNU Free Documentation License
 @include doclicense.texi
 
-@node Index
+@node Index,  , GNU Free Documentation License, Top
 @unnumbered Index
 
 @printindex fn

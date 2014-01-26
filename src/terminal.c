@@ -1,5 +1,5 @@
 /* Functions related to terminal devices.
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2013 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -17,6 +17,8 @@ You should have received a copy of the GNU General Public License
 along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <config.h>
+
+#define TERMHOOKS_INLINE EXTERN_INLINE
 
 #include <stdio.h>
 
@@ -36,8 +38,6 @@ static int next_terminal_id;
 
 /* The initial terminal device, created by initial_term_init. */
 struct terminal *initial_terminal;
-
-static Lisp_Object Qterminal_live_p;
 
 static void delete_initial_terminal (struct terminal *);
 
@@ -199,11 +199,11 @@ ins_del_lines (struct frame *f, int vpos, int n)
 
 /* Return the terminal object specified by TERMINAL.  TERMINAL may be
    a terminal object, a frame, or nil for the terminal device of the
-   current frame.  If THROW is false, return NULL for failure,
+   current frame.  If THROW is zero, return NULL for failure,
    otherwise throw an error.  */
 
 struct terminal *
-get_terminal (Lisp_Object terminal, bool throw)
+get_terminal (Lisp_Object terminal, int throw)
 {
   struct terminal *result = NULL;
 
@@ -280,7 +280,7 @@ delete_terminal (struct terminal *terminal)
   xfree (terminal->name);
   terminal->name = NULL;
 
-  /* Check for live frames that are still on this terminal.  */
+  /* Check for live frames that are still on this terminal. */
   FOR_EACH_FRAME (tail, frame)
     {
       struct frame *f = XFRAME (frame);
@@ -360,7 +360,14 @@ If FRAME is nil, the selected frame is used.
 The terminal device is represented by its integer identifier.  */)
   (Lisp_Object frame)
 {
-  struct terminal *t = FRAME_TERMINAL (decode_live_frame (frame));
+  struct terminal *t;
+
+  if (NILP (frame))
+    frame = selected_frame;
+
+  CHECK_LIVE_FRAME (frame);
+
+  t = FRAME_TERMINAL (XFRAME (frame));
 
   if (!t)
     return Qnil;
@@ -398,6 +405,8 @@ possible return values.  */)
       return Qw32;
     case output_msdos_raw:
       return Qpc;
+    case output_mac:
+      return Qmac;
     case output_ns:
       return Qns;
     default:
@@ -549,8 +558,6 @@ Each function is called with argument, the terminal.
 This may be called just before actually deleting the terminal,
 or some time later.  */);
   Vdelete_terminal_functions = Qnil;
-
-  DEFSYM (Qterminal_live_p, "terminal-live-p");
   DEFSYM (Qdelete_terminal_functions, "delete-terminal-functions");
   DEFSYM (Qrun_hook_with_args, "run-hook-with-args");
 

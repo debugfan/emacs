@@ -1,6 +1,6 @@
 ;;; which-func.el --- print current function in mode line
 
-;; Copyright (C) 1994, 1997-1998, 2001-2014 Free Software Foundation,
+;; Copyright (C) 1994, 1997-1998, 2001-2013 Free Software Foundation,
 ;; Inc.
 
 ;; Author:   Alex Rezinsky <alexr@msil.sps.mot.com>
@@ -290,7 +290,7 @@ If no function name is found, return nil."
     (when (and (null name)
 	       (boundp 'imenu--index-alist) (null imenu--index-alist)
 	       (null which-function-imenu-failed))
-      (ignore-errors (imenu--make-index-alist t))
+      (imenu--make-index-alist t)
       (unless imenu--index-alist
         (set (make-local-variable 'which-function-imenu-failed) t)))
     ;; If we have an index alist, use it.
@@ -319,9 +319,7 @@ If no function name is found, return nil."
                     namestack (cons (car pair) namestack)
                     alist     (cdr pair)))
 
-             ((or (number-or-marker-p (setq mark (cdr pair)))
-		  (and (overlayp mark)
-		       (setq mark (overlay-start mark))))
+             ((number-or-marker-p (setq mark (cdr pair)))
               (when (and (>= (setq offset (- (point) mark)) 0)
                          (< offset minoffset)) ; Find the closest item.
                 (setq minoffset offset
@@ -342,10 +340,6 @@ If no function name is found, return nil."
 
 
 ;;; Integration with other packages
-
-(defvar ediff-window-A)
-(defvar ediff-window-B)
-(defvar ediff-window-C)
 
 (defun which-func-update-ediff-windows ()
   "Update Which-Function mode display for Ediff windows.

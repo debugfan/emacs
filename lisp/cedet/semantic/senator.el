@@ -1,6 +1,6 @@
 ;;; semantic/senator.el --- SEmantic NAvigaTOR
 
-;; Copyright (C) 2000-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2000-2013 Free Software Foundation, Inc.
 
 ;; Author: David Ponce <david@dponce.com>
 ;; Maintainer: FSF
@@ -727,13 +727,7 @@ kill ring."
   (semantic-fetch-tags)
   (let ((ft (semantic-obtain-foreign-tag)))
     (when ft
-      (set-register
-       register (registerv-make
-                 ft
-                 :insert-func #'semantic-insert-foreign-tag
-                 :jump-func (lambda (v)
-                              (switch-to-buffer (semantic-tag-buffer v))
-                              (goto-char (semantic-tag-start v)))))
+      (set-register register ft)
       (if kill-flag
           (kill-region (semantic-tag-start ft)
                        (semantic-tag-end ft))))))

@@ -1,6 +1,6 @@
 ;;; net-utils.el --- network functions
 
-;; Copyright (C) 1998-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1998-2013 Free Software Foundation, Inc.
 
 ;; Author:  Peter Breton <pbreton@cs.umb.edu>
 ;; Created: Sun Mar 16 1997
@@ -53,6 +53,11 @@
   :prefix "net-utils-"
   :group 'comm
   :version "20.3")
+
+(defcustom net-utils-remove-ctl-m (memq system-type '(windows-nt msdos))
+  "If non-nil, remove control-Ms from output."
+  :group 'net-utils
+  :type  'boolean)
 
 (defcustom traceroute-program
   (if (eq system-type 'windows-nt)
@@ -280,8 +285,7 @@ This variable is only used if the variable
 (define-derived-mode net-utils-mode special-mode "NetworkUtil"
   "Major mode for interacting with an external network utility."
   (set (make-local-variable 'font-lock-defaults)
-       '((net-utils-font-lock-keywords)))
-  (setq-local revert-buffer-function #'net-utils--revert-function))
+       '((net-utils-font-lock-keywords))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions
@@ -314,17 +318,25 @@ This variable is only used if the variable
 
 (defun net-utils-remove-ctrl-m-filter (process output-string)
   "Remove trailing control Ms."
-  (with-current-buffer (process-buffer process)
-    (save-excursion
-      (let ((inhibit-read-only t)
-            (filtered-string output-string))
-        (while (string-match "\r" filtered-string)
-          (setq filtered-string
-                (replace-match "" nil nil filtered-string)))
-        ;; Insert the text, moving the process-marker.
-        (goto-char (process-mark process))
-        (insert filtered-string)
-        (set-marker (process-mark process) (point))))))
+  (let ((old-buffer (current-buffer))
+	(filtered-string output-string))
+    (unwind-protect
+	(let ((moving))
+	  (set-buffer (process-buffer process))
+	  (let ((inhibit-read-only t))
+	    (setq moving (= (point) (process-mark process)))
+
+	    (while (string-match "\r" filtered-string)
+	      (setq filtered-string
+		    (replace-match "" nil nil filtered-string)))
+
+	    (save-excursion
+	      ;; Insert the text, moving the process-marker.
+	      (goto-char (process-mark process))
+	      (insert filtered-string)
+	      (set-marker (process-mark process) (point))))
+	  (if moving (goto-char (process-mark process))))
+      (set-buffer old-buffer))))
 
 (defun net-utils-run-program (name header program args)
   "Run a network information program."
@@ -342,38 +354,20 @@ This variable is only used if the variable
 ;; General network utilities (diagnostic)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Todo: This data could be saved in a bookmark.
-(defvar net-utils--revert-cmd nil)
-
-(defun net-utils-run-simple (buffer program-name args &optional nodisplay)
+(defun net-utils-run-simple (buffer-name program-name args)
   "Run a network utility for diagnostic output only."
-  (with-current-buffer (if (stringp buffer) (get-buffer-create buffer) buffer)
-    (let ((proc (get-buffer-process (current-buffer))))
-      (when proc
-        (set-process-filter proc nil)
-        (delete-process proc)))
-    (let ((inhibit-read-only t))
-      (erase-buffer))
+  (interactive)
+  (when (get-buffer buffer-name)
+    (kill-buffer buffer-name))
+  (get-buffer-create buffer-name)
+  (with-current-buffer buffer-name
     (net-utils-mode)
-    (setq-local net-utils--revert-cmd
-                `(net-utils-run-simple ,(current-buffer)
-                                       ,program-name ,args nodisplay))
     (set-process-filter
-         (apply 'start-process program-name
-                (current-buffer) program-name args)
-         'net-utils-remove-ctrl-m-filter)
-    (unless nodisplay (display-buffer (current-buffer)))))
-
-(defun net-utils--revert-function (&optional ignore-auto noconfirm)
-  (message "Reverting `%s'..." (buffer-name))
-  (apply (car net-utils--revert-cmd) (cdr net-utils--revert-cmd))
-  (let ((proc (get-buffer-process (current-buffer))))
-    (when proc
-      (set-process-sentinel
-       proc
-       (lambda (process event)
-         (when (string= event "finished\n")
-           (message "Reverting `%s' done" (process-buffer process))))))))
+     (apply 'start-process (format "%s" program-name)
+	    buffer-name program-name args)
+     'net-utils-remove-ctrl-m-filter)
+    (goto-char (point-min)))
+  (display-buffer buffer-name))
 
 ;;;###autoload
 (defun ifconfig ()
@@ -434,8 +428,9 @@ This variable is only used if the variable
 	 (if traceroute-program-options
 	     (append traceroute-program-options (list target))
 	   (list target))))
-    (net-utils-run-simple
+    (net-utils-run-program
      (concat "Traceroute" " " target)
+     (concat "** Traceroute ** " traceroute-program " ** " target)
      traceroute-program
      options)))
 
@@ -497,7 +492,7 @@ If your system's ping continues until interrupted, you can try setting
 
 (defvar nslookup-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "\t" 'completion-at-point)
+    (define-key map "\t" 'comint-dynamic-complete)
     map))
 
 ;; Using a derived mode gives us keymaps, hooks, etc.
@@ -567,7 +562,7 @@ If your system's ping continues until interrupted, you can try setting
 (defvar ftp-mode-map
   (let ((map (make-sparse-keymap)))
     ;; Occasionally useful
-    (define-key map "\t" 'completion-at-point)
+    (define-key map "\t" 'comint-dynamic-complete)
     map))
 
 (define-derived-mode ftp-mode comint-mode "FTP"

@@ -1,6 +1,6 @@
 ;;; tramp-cmds.el --- Interactive commands for Tramp
 
-;; Copyright (C) 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2013 Free Software Foundation, Inc.
 
 ;; Author: Michael Albinus <michael.albinus@gmx.de>
 ;; Keywords: comm, processes
@@ -30,10 +30,6 @@
 
 (require 'tramp)
 
-;; Pacify byte-compiler.
-(defvar reporter-eval-buffer)
-(defvar reporter-prompt-for-summary-p)
-
 (defun tramp-list-tramp-buffers ()
   "Return a list of all Tramp connection buffers."
   (append
@@ -48,15 +44,16 @@
    nil
    (mapcar
     (lambda (x)
-      (with-current-buffer x (when (tramp-tramp-file-p default-directory) x)))
+      (with-current-buffer x
+	(when (and (stringp default-directory)
+		   (file-remote-p default-directory))
+	  x)))
     (buffer-list))))
 
 ;;;###tramp-autoload
-(defun tramp-cleanup-connection (vec &optional keep-debug keep-password)
+(defun tramp-cleanup-connection (vec)
   "Flush all connection related objects.
-This includes password cache, file cache, connection cache,
-buffers.  KEEP-DEBUG non-nil preserves the debug buffer.
-KEEP-PASSWORD non-nil preserves the password cache.
+This includes password cache, file cache, connection cache, buffers.
 When called interactively, a Tramp connection has to be selected."
   (interactive
    ;; When interactive, select the Tramp remote identification.
@@ -78,20 +75,15 @@ When called interactively, a Tramp connection has to be selected."
 	      (completing-read
 	       "Enter Tramp connection: " connections nil t
 	       (try-completion "" connections)))
-	(and (tramp-tramp-file-p name) (tramp-dissect-file-name name))))
-    nil nil))
+	(when (and name (file-remote-p name))
+	  (with-parsed-tramp-file-name name nil v))))))
 
   (if (not vec)
       ;; Nothing to do.
       (message "No Tramp connection found.")
 
     ;; Flush password cache.
-    (unless keep-password (tramp-clear-passwd vec))
-
-    ;; Cleanup `tramp-current-connection'.  Otherwise, we would be
-    ;; suppressed in the test suite.  We use `keep-password' as
-    ;; indicator; it is not worth to add a new argument.
-    (when keep-password (setq tramp-current-connection nil))
+    (tramp-clear-passwd vec)
 
     ;; Flush file cache.
     (tramp-flush-directory-property vec "")
@@ -105,8 +97,7 @@ When called interactively, a Tramp connection has to be selected."
     ;; Remove buffers.
     (dolist
 	(buf (list (get-buffer (tramp-buffer-name vec))
-		   (unless keep-debug
-		     (get-buffer (tramp-debug-buffer-name vec)))
+		   (get-buffer (tramp-debug-buffer-name vec))
 		   (tramp-get-connection-property vec "process-buffer" nil)))
       (when (bufferp buf) (kill-buffer buf)))))
 
@@ -114,7 +105,8 @@ When called interactively, a Tramp connection has to be selected."
 (defun tramp-cleanup-this-connection ()
   "Flush all connection related objects of the current buffer's connection."
   (interactive)
-  (and (tramp-tramp-file-p default-directory)
+  (and (stringp default-directory)
+       (file-remote-p default-directory)
        (tramp-cleanup-connection
 	(tramp-dissect-file-name default-directory 'noexpand))))
 
@@ -194,9 +186,7 @@ This includes password cache, file cache, connection cache, buffers."
 
        'tramp-load-report-modules	; pre-hook
        'tramp-append-tramp-buffers	; post-hook
-       (tramp-compat-funcall
-	(if (functionp 'propertize) 'propertize 'progn)
-	"\n" 'display "\
+       "\
 Enter your bug report in this message, including as much detail
 as you possibly can about the problem, what you did to cause it
 and what the local and remote machines are.
@@ -219,7 +209,7 @@ contents of the *tramp/foo* buffer and the *debug tramp/foo*
 buffer in your bug report.
 
 --bug report follows this line--
-")))))
+"))))
 
 (defun tramp-reporter-dump-variable (varsym mailbuf)
   "Pretty-print the value of the variable in symbol VARSYM."
@@ -276,7 +266,6 @@ buffer in your bug report.
   (goto-char (point-max))
 
   ;; Dump buffer local variables.
-  (insert "\nlocal variables:\n================")
   (dolist (buffer
 	   (delq nil
 		 (mapcar
@@ -284,23 +273,21 @@ buffer in your bug report.
                     (when (string-match "\\*tramp/" (buffer-name b)) b))
 		  (buffer-list))))
     (let ((reporter-eval-buffer buffer)
+	  (buffer-name (buffer-name buffer))
 	  (elbuf (get-buffer-create " *tmp-reporter-buffer*")))
       (with-current-buffer elbuf
 	(emacs-lisp-mode)
 	(erase-buffer)
-	(insert (format "\n;; %s\n(setq-local\n" (buffer-name buffer)))
+	(insert "\n(setq\n")
 	(lisp-indent-line)
-	(dolist
-	    (varsym
-	     (sort
-	      (append
-	       (mapcar
-		'intern
-		(all-completions "tramp-" (buffer-local-variables buffer)))
-	       ;; Non-tramp variables of interest.
-	       '(default-directory))
-	      'string<))
-	    (tramp-compat-funcall 'reporter-dump-variable varsym elbuf))
+	(tramp-compat-funcall
+	 'reporter-dump-variable 'buffer-name (current-buffer))
+	(dolist (varsym-or-cons-cell (buffer-local-variables buffer))
+	  (let ((varsym (or (car-safe varsym-or-cons-cell)
+			    varsym-or-cons-cell)))
+	    (when (string-match "tramp" (symbol-name varsym))
+	      (tramp-compat-funcall
+	       'reporter-dump-variable varsym (current-buffer)))))
 	(lisp-indent-line)
 	(insert ")\n"))
       (insert-buffer-substring elbuf)))
@@ -361,10 +348,10 @@ the debug buffer(s).")
 	      (kill-buffer nil)
 	      (switch-to-buffer curbuf)
 	      (goto-char (point-max))
-	      (insert (tramp-compat-funcall 'propertize "\n" 'display "\n\
+	      (insert "\n\
 This is a special notion of the `gnus/message' package.  If you
 use another mail agent (by copying the contents of this buffer)
-please ensure that the buffers are attached to your email.\n\n"))
+please ensure that the buffers are attached to your email.\n\n")
 	      (dolist (buffer buffer-list)
 		(tramp-compat-funcall
 		 'mml-insert-empty-tag 'part 'type "text/plain"

@@ -1,6 +1,6 @@
 ;;; org-timer.el --- The relative timer code for Org-mode
 
-;; Copyright (C) 2008-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2013 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -370,8 +370,6 @@ VALUE can be `on', `off', or `pause'."
       (message "%d minute(s) %d seconds left before next time out"
 	       rmins rsecs))))
 
-(defvar org-clock-sound)
-
 ;;;###autoload
 (defun org-timer-set-timer (&optional opt)
   "Prompt for a duration and set a timer.
@@ -431,7 +429,7 @@ replace any running timer."
 		    (run-with-timer
 		     secs nil `(lambda ()
 				 (setq org-timer-current-timer nil)
-				 (org-notify ,(format "%s: time out" hl) ,org-clock-sound)
+				 (org-notify ,(format "%s: time out" hl) t)
 				 (setq org-timer-timer-is-countdown nil)
 				 (org-timer-set-mode-line 'off)
 				 (run-hooks 'org-timer-done-hook))))

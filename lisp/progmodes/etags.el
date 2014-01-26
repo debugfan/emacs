@@ -1,6 +1,6 @@
 ;;; etags.el --- etags facility for Emacs  -*- lexical-binding: t -*-
 
-;; Copyright (C) 1985-1986, 1988-1989, 1992-1996, 1998, 2000-2014 Free
+;; Copyright (C) 1985-1986, 1988-1989, 1992-1996, 1998, 2000-2013 Free
 ;; Software Foundation, Inc.
 
 ;; Author: Roland McGrath <roland@gnu.org>
@@ -199,8 +199,7 @@ Pop back to the last location with \\[negative-argument] \\[find-tag].")
 
 (defvar tags-table-files nil
   "List of file names covered by current tags table.
-nil means it has not yet been computed;
-use function `tags-table-files' to do so.")
+nil means it has not yet been computed; use `tags-table-files' to do so.")
 
 (defvar tags-completion-table nil
   "Obarray of tag names defined in current tags table.")
@@ -225,7 +224,7 @@ of the format-parsing tags function variables if successful.")
 One optional argument, a boolean specifying to return complete path (nil) or
 relative path (non-nil).")
 (defvar tags-table-files-function nil
-  "Function to do the work of function `tags-table-files' (which see).")
+  "Function to do the work of `tags-table-files' (which see).")
 (defvar tags-completion-table-function nil
   "Function to build the `tags-completion-table'.")
 (defvar snarf-tag-function nil
@@ -252,7 +251,7 @@ One argument, the tag info returned by `snarf-tag-function'.")
 (defvar tags-apropos-function nil
   "Function to do the work of `tags-apropos' (which see).")
 (defvar tags-included-tables-function nil
-  "Function to do the work of function `tags-included-tables' (which see).")
+  "Function to do the work of `tags-included-tables' (which see).")
 (defvar verify-tags-table-function nil
   "Function to return t if current buffer contains valid tags file.")
 
@@ -703,9 +702,7 @@ Returns t if it visits a tags table, or nil if there are no more in the list."
 	(kill-local-variable 'tags-file-name)
 	(if (eq local-tags-file-name tags-file-name)
 	    (setq tags-file-name nil))
-	(user-error (if (file-exists-p local-tags-file-name)
-                        "File %s is not a valid tags table"
-                      "File %s does not exist")
+	(user-error "File %s is not a valid tags table"
                     local-tags-file-name)))))
 
 (defun tags-reset-tags-tables ()
@@ -982,7 +979,7 @@ See documentation of variable `tags-file-name'."
   ;; selected window's buffer; without the hair, point is moved in both
   ;; windows.  To prevent this, we save the selected window's point before
   ;; doing find-tag-noselect, and restore it after.
-  (let* ((window-point (window-point))
+  (let* ((window-point (window-point (selected-window)))
 	 (tagbuf (find-tag-noselect tagname next-p regexp-p))
 	 (tagpoint (progn (set-buffer tagbuf) (point))))
     (set-window-point (prog1

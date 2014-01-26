@@ -1,8 +1,8 @@
 ;;; mml1991.el --- Old PGP message format (RFC 1991) support for MML
 
-;; Copyright (C) 1998-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1998-2013 Free Software Foundation, Inc.
 
-;; Author: Sascha LÃ¼decke <sascha@meta-x.de>,
+;; Author: Sascha Lüdecke <sascha@meta-x.de>,
 ;;	Simon Josefsson <simon@josefsson.org> (Mailcrypt interface, Gnus glue)
 ;; Keywords: PGP
 
@@ -49,8 +49,6 @@
 (autoload 'mm-encode-content-transfer-encoding "mm-bodies")
 (autoload 'message-options-get "message")
 (autoload 'message-options-set "message")
-
-(require 'mml2015)
 
 (defvar mml1991-use mml2015-use
   "The package used for PGP.")
@@ -482,7 +480,7 @@ If no one is selected, default secret key is used.  "
 (provide 'mml1991)
 
 ;; Local Variables:
-;; coding: utf-8
+;; coding: iso-8859-1
 ;; End:
 
 ;;; mml1991.el ends here

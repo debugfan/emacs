@@ -1,6 +1,6 @@
 ;;; make-mode.el --- makefile editing commands for Emacs -*- lexical-binding:t -*-
 
-;; Copyright (C) 1992, 1994, 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 1994, 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: Thomas Neumann <tom@smart.bo.open.de>
 ;;	Eric S. Raymond <esr@snark.thyrsus.com>
@@ -241,7 +241,7 @@ to MODIFY A FILE WITHOUT YOUR CONFIRMATION when \"it seems necessary\"."
   "List of special targets.
 You will be offered to complete on one of those in the minibuffer whenever
 you enter a \".\" at the beginning of a line in `makefile-mode'."
-  :type '(repeat string)
+  :type '(repeat (list string))
   :group 'makefile)
 (put 'makefile-special-targets-list 'risky-local-variable t)
 
@@ -712,9 +712,7 @@ The function must satisfy this calling convention:
     (modify-syntax-entry ?\` "\"    " st)
     (modify-syntax-entry ?#  "<     " st)
     (modify-syntax-entry ?\n ">     " st)
-    (modify-syntax-entry ?= "." st)
-    st)
-  "Syntax table used in `makefile-mode'.")
+    st))
 
 (defvar makefile-imake-mode-syntax-table
   (let ((st (make-syntax-table makefile-mode-syntax-table)))
@@ -881,42 +879,41 @@ Makefile mode can be configured by modifying the following variables:
   (make-local-variable 'makefile-need-macro-pickup)
 
   ;; Font lock.
-  (setq-local font-lock-defaults
-	      ;; Set SYNTAX-BEGIN to backward-paragraph to avoid
-	      ;; slow-down near the end of a large buffer, due to
-	      ;; `parse-partial-sexp' trying to parse all the way till
-	      ;; the beginning of buffer.
-	      '(makefile-font-lock-keywords
-		nil nil
-		((?$ . "."))
-		backward-paragraph))
-  (setq-local syntax-propertize-function
-	      makefile-syntax-propertize-function)
+  (set (make-local-variable 'font-lock-defaults)
+       ;; SYNTAX-BEGIN set to backward-paragraph to avoid slow-down
+       ;; near the end of a large buffer, due to parse-partial-sexp's
+       ;; trying to parse all the way till the beginning of buffer.
+       '(makefile-font-lock-keywords
+         nil nil
+         ((?$ . "."))
+         backward-paragraph))
+  (set (make-local-variable 'syntax-propertize-function)
+       makefile-syntax-propertize-function)
 
   ;; Add-log.
-  (setq-local add-log-current-defun-function
-	      'makefile-add-log-defun)
+  (set (make-local-variable 'add-log-current-defun-function)
+       'makefile-add-log-defun)
 
   ;; Imenu.
-  (setq-local imenu-generic-expression
-	      makefile-imenu-generic-expression)
+  (set (make-local-variable 'imenu-generic-expression)
+       makefile-imenu-generic-expression)
 
   ;; Dabbrev.
-  (setq-local dabbrev-abbrev-skip-leading-regexp "\\$")
+  (set (make-local-variable 'dabbrev-abbrev-skip-leading-regexp) "\\$")
 
   ;; Other abbrevs.
   (setq local-abbrev-table makefile-mode-abbrev-table)
 
   ;; Filling.
-  (setq-local fill-paragraph-function 'makefile-fill-paragraph)
+  (set (make-local-variable 'fill-paragraph-function) 'makefile-fill-paragraph)
 
   ;; Comment stuff.
-  (setq-local comment-start "#")
-  (setq-local comment-end "")
-  (setq-local comment-start-skip "#+[ \t]*")
+  (set (make-local-variable 'comment-start) "#")
+  (set (make-local-variable 'comment-end) "")
+  (set (make-local-variable 'comment-start-skip) "#+[ \t]*")
 
   ;; Make sure TAB really inserts \t.
-  (setq-local indent-line-function 'indent-to-left-margin)
+  (set (make-local-variable 'indent-line-function) 'indent-to-left-margin)
 
   ;; Real TABs are important in makefiles
   (setq indent-tabs-mode t))
@@ -937,7 +934,8 @@ Makefile mode can be configured by modifying the following variables:
 ;;;###autoload
 (define-derived-mode makefile-makepp-mode makefile-mode "Makeppfile"
   "An adapted `makefile-mode' that knows about makepp."
-  (setq-local makefile-rule-action-regex makefile-makepp-rule-action-regex)
+  (set (make-local-variable 'makefile-rule-action-regex)
+       makefile-makepp-rule-action-regex)
   (setq font-lock-defaults
 	`(makefile-makepp-font-lock-keywords ,@(cdr font-lock-defaults))
 	imenu-generic-expression
@@ -947,9 +945,11 @@ Makefile mode can be configured by modifying the following variables:
 ;;;###autoload
 (define-derived-mode makefile-bsdmake-mode makefile-mode "BSDmakefile"
   "An adapted `makefile-mode' that knows about BSD make."
-  (setq-local makefile-dependency-regex makefile-bsdmake-dependency-regex)
-  (setq-local makefile-dependency-skip "^:!")
-  (setq-local makefile-rule-action-regex makefile-bsdmake-rule-action-regex)
+  (set (make-local-variable 'makefile-dependency-regex)
+       makefile-bsdmake-dependency-regex)
+  (set (make-local-variable 'makefile-dependency-skip) "^:!")
+  (set (make-local-variable 'makefile-rule-action-regex)
+       makefile-bsdmake-rule-action-regex)
   (setq font-lock-defaults
 	`(makefile-bsdmake-font-lock-keywords ,@(cdr font-lock-defaults))))
 
@@ -957,7 +957,7 @@ Makefile mode can be configured by modifying the following variables:
 (define-derived-mode makefile-imake-mode makefile-mode "Imakefile"
   "An adapted `makefile-mode' that knows about imake."
   :syntax-table makefile-imake-mode-syntax-table
-  (setq-local syntax-propertize-function nil)
+  (set (make-local-variable 'syntax-propertize-function) nil)
   (setq font-lock-defaults
         `(makefile-imake-font-lock-keywords ,@(cdr font-lock-defaults))))
 
@@ -1215,23 +1215,26 @@ definition and conveniently use this command."
   (save-excursion
     (goto-char from)
     (let ((column makefile-backslash-column)
-          (endmark (copy-marker to)))
+          (endmark (make-marker)))
+      (move-marker endmark to)
       ;; Compute the smallest column number past the ends of all the lines.
-      (when (and makefile-backslash-align (not delete-flag))
-        (while (< (point) to)
-          (end-of-line)
-          (if (= (preceding-char) ?\\)
-              (progn (forward-char -1)
-                     (skip-chars-backward " \t")))
-          (setq column (max column (1+ (current-column))))
-	  (forward-line 1))
-        ;; Adjust upward to a tab column, if that doesn't push
-        ;; past the margin.
-        (if (> (% column tab-width) 0)
-            (let ((adjusted (* (/ (+ column tab-width -1) tab-width)
-                               tab-width)))
-              (if (< adjusted (window-width))
-		  (setq column adjusted)))))
+      (if makefile-backslash-align
+	  (progn
+	    (if (not delete-flag)
+		(while (< (point) to)
+		  (end-of-line)
+		  (if (= (preceding-char) ?\\)
+		      (progn (forward-char -1)
+			     (skip-chars-backward " \t")))
+		  (setq column (max column (1+ (current-column))))
+		  (forward-line 1)))
+	    ;; Adjust upward to a tab column, if that doesn't push
+	    ;; past the margin.
+	    (if (> (% column tab-width) 0)
+		(let ((adjusted (* (/ (+ column tab-width -1) tab-width)
+				   tab-width)))
+		  (if (< adjusted (window-width))
+		      (setq column adjusted))))))
       ;; Don't modify blank lines at start of region.
       (goto-char from)
       (while (and (< (point) endmark) (eolp))
@@ -1272,9 +1275,9 @@ definition and conveniently use this command."
 
 ;; Filling
 
-(defun makefile-fill-paragraph (_justify)
-  "Function used for `fill-paragraph-function' in Makefile mode.
-Fill comments, backslashed lines, and variable definitions specially."
+(defun makefile-fill-paragraph (_arg)
+  ;; Fill comments, backslashed lines, and variable definitions
+  ;; specially.
   (save-excursion
     (beginning-of-line)
     (cond
@@ -1294,20 +1297,17 @@ Fill comments, backslashed lines, and variable definitions specially."
 	       (end-of-line 0)
 	       (while (= (preceding-char) ?\\)
 		 (end-of-line 0))
-	       ;; Maybe we hit bobp, in which case we are not at EOL.
-	       (if (eolp)
-		   (1+ (point))
-                 (point))))
+	       (forward-char)
+	       (point)))
 	    (end
 	     (save-excursion
-	       (while (and (= (preceding-char) ?\\)
-			   (not (eobp)))
+	       (while (= (preceding-char) ?\\)
 		 (end-of-line 2))
 	       (point))))
 	(save-restriction
 	  (narrow-to-region beginning end)
 	  (makefile-backslash-region (point-min) (point-max) t)
-	  ;; Backslashed newlines are marked as punctuation, so when
+	  ;; Backslashed newlines are marked as puncutations, so when
 	  ;; fill-delete-newlines turns the LF into SPC, we end up with spaces
 	  ;; which back-to-indentation (called via fill-newline ->
 	  ;; fill-indent-to-left-margin -> indent-line-to) thinks are real code
@@ -1507,8 +1507,8 @@ Insertion takes place at point."
 	(pop-to-buffer browser-buffer)
 	(makefile-browser-fill targets macros)
 	(shrink-window-if-larger-than-buffer)
-	(setq-local makefile-browser-selection-vector
-		    (make-vector (+ (length targets) (length macros)) nil))
+	(set (make-local-variable 'makefile-browser-selection-vector)
+	     (make-vector (+ (length targets) (length macros)) nil))
 	(makefile-browser-start-interaction))))
 
 (defun makefile-switch-to-browser ()

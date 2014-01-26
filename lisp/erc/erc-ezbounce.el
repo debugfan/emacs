@@ -1,6 +1,6 @@
 ;;; erc-ezbounce.el ---  Handle EZBounce bouncer commands
 
-;; Copyright (C) 2002, 2004, 2006-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2002, 2004, 2006-2013 Free Software Foundation, Inc.
 
 ;; Author: Andreas Fuchs <asf@void.at>
 ;; Maintainer: FSF
@@ -26,6 +26,7 @@
 ;;; Code:
 
 (require 'erc)
+(eval-when-compile (require 'cl))
 
 (defgroup erc-ezbounce nil
   "Interface to the EZBounce IRC bouncer (a virtual IRC server)"

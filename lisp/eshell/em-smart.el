@@ -1,6 +1,6 @@
-;;; em-smart.el --- smart display of output  -*- lexical-binding:t -*-
+;;; em-smart.el --- smart display of output
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -68,7 +68,6 @@
 
 ;;; Code:
 
-(require 'esh-mode)
 (eval-when-compile (require 'eshell))
 
 ;;;###autoload
@@ -194,8 +193,7 @@ The options are `begin', `after' or `end'."
       (add-hook 'eshell-post-command-hook
 		'eshell-smart-maybe-jump-to-end nil t))))
 
-;; This is called by window-scroll-functions with two arguments.
-(defun eshell-smart-scroll-window (wind _start)
+(defun eshell-smart-scroll-window (wind start)
   "Scroll the given Eshell window accordingly."
   (unless eshell-currently-handling-window
     (let ((inhibit-point-motion-hooks t)
@@ -238,8 +236,7 @@ The options are `begin', `after' or `end'."
   (add-hook 'pre-command-hook 'eshell-smart-display-move nil t)
   (eshell-refresh-windows))
 
-;; Called from after-change-functions with 3 arguments.
-(defun eshell-disable-after-change (_b _e _l)
+(defun eshell-disable-after-change (b e l)
   "Disable smart display mode if the buffer changes in any way."
   (when eshell-smart-command-done
     (remove-hook 'pre-command-hook 'eshell-smart-display-move t)

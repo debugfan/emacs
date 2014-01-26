@@ -1,6 +1,6 @@
-;;; em-alias.el --- creation and management of command aliases  -*- lexical-binding:t -*-
+;;; em-alias.el --- creation and management of command aliases
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -90,6 +90,8 @@
 
 ;;; Code:
 
+(eval-when-compile
+  (require 'esh-util))
 (require 'eshell)
 
 ;;;###autoload
@@ -221,11 +223,18 @@ file named by `eshell-aliases-file'.")
     (let ((alias (eshell-lookup-alias command)))
       (if alias
 	  (throw 'eshell-replace-command
-		 `(let ((eshell-command-name ',eshell-last-command-name)
-                        (eshell-command-arguments ',eshell-last-arguments)
-                        (eshell-prevent-alias-expansion
-                         ',(cons command eshell-prevent-alias-expansion)))
-                    ,(eshell-parse-command (nth 1 alias))))))))
+		 (list
+		  'let
+		  (list
+		   (list 'eshell-command-name
+			 (list 'quote eshell-last-command-name))
+		   (list 'eshell-command-arguments
+			 (list 'quote eshell-last-arguments))
+		   (list 'eshell-prevent-alias-expansion
+			 (list 'quote
+			       (cons command
+				     eshell-prevent-alias-expansion))))
+		  (eshell-parse-command (nth 1 alias))))))))
 
 (defun eshell-alias-completions (name)
   "Find all possible completions for NAME.

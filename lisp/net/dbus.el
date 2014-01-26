@@ -1,6 +1,6 @@
 ;;; dbus.el --- Elisp bindings for D-Bus.
 
-;; Copyright (C) 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2013 Free Software Foundation, Inc.
 
 ;; Author: Michael Albinus <michael.albinus@gmx.de>
 ;; Keywords: comm, hardware
@@ -268,12 +268,9 @@ object is returned instead of a list containing this single Lisp object.
     ;; Wait until `dbus-call-method-handler' has put the result into
     ;; `dbus-return-values-table'.  If no timeout is given, use the
     ;; default 25".  Events which are not from D-Bus must be restored.
-    ;; `read-event' performs a redisplay.  This must be suppressed; it
-    ;; hurts when reading D-Bus events asynchronously.
     (with-timeout ((if timeout (/ timeout 1000.0) 25))
       (while (eq (gethash key dbus-return-values-table :ignore) :ignore)
-	(let ((event (let ((inhibit-redisplay t) unread-command-events)
-		       (read-event nil nil 0.1))))
+	(let ((event (let (unread-command-events) (read-event nil nil 0.1))))
 	  (when (and event (not (ignore-errors (dbus-check-event event))))
 	    (setq unread-command-events
 		  (append unread-command-events (list event)))))))
@@ -521,7 +518,7 @@ denoting the bus address.  SERVICE must be a known service name.
 The function returns a keyword, indicating the result of the
 operation.  One of the following keywords is returned:
 
-`:released': We successfully released the service.
+`:released': Service has become the primary owner of the name.
 
 `:non-existent': Service name does not exist on this bus.
 
@@ -530,13 +527,12 @@ queue of this service."
 
   (maphash
    (lambda (key value)
-     (unless (equal :serial (car key))
-       (dolist (elt value)
-	 (ignore-errors
-	   (when (and (equal bus (cadr key)) (string-equal service (cadr elt)))
-	     (unless
-		 (puthash key (delete elt value) dbus-registered-objects-table)
-	       (remhash key dbus-registered-objects-table)))))))
+     (dolist (elt value)
+       (ignore-errors
+	 (when (and (equal bus (cadr key)) (string-equal service (cadr elt)))
+	   (unless
+	       (puthash key (delete elt value) dbus-registered-objects-table)
+	     (remhash key dbus-registered-objects-table))))))
    dbus-registered-objects-table)
   (let ((reply (dbus-call-method
 		bus dbus-service-dbus dbus-path-dbus dbus-interface-dbus
@@ -828,18 +824,10 @@ STRING shall be UTF8 coded."
       (dolist (elt (string-to-list string) (append '(:array) result))
 	(setq result (append result (list :byte elt)))))))
 
-(defun dbus-byte-array-to-string (byte-array &optional multibyte)
+(defun dbus-byte-array-to-string (byte-array)
   "Transforms BYTE-ARRAY into UTF8 coded string.
-BYTE-ARRAY must be a list of structure (c1 c2 ...), or a byte
-array as produced by `dbus-string-to-byte-array'.  The resulting
-string is unibyte encoded, unless MULTIBYTE is non-nil."
-  (apply
-   (if multibyte 'string 'unibyte-string)
-   (if (equal byte-array '(:array :signature "y"))
-       nil
-     (let (result)
-       (dolist (elt byte-array result)
-	 (when (characterp elt) (setq result (append result `(,elt)))))))))
+BYTE-ARRAY must be a list of structure (c1 c2 ...)."
+  (apply 'string byte-array))
 
 (defun dbus-escape-as-identifier (string)
   "Escape an arbitrary STRING so it follows the rules for a C identifier.
@@ -857,7 +845,7 @@ and a smaller allowed set. As a special case, \"\" is escaped to
 \"_\".
 
 Returns the escaped string.  Algorithm taken from
-telepathy-glib's `tp_escape_as_identifier'."
+telepathy-glib's `tp-escape-as-identifier'."
   (if (zerop (length string))
       "_"
     (replace-regexp-in-string
@@ -866,13 +854,13 @@ telepathy-glib's `tp_escape_as_identifier'."
      string)))
 
 (defun dbus-unescape-from-identifier (string)
-  "Retrieve the original string from the encoded STRING as unibyte string.
-STRING must have been encoded with `dbus-escape-as-identifier'."
+  "Retrieve the original string from the encoded STRING.
+STRING must have been coded with `dbus-escape-as-identifier'"
   (if (string-equal string "_")
       ""
     (replace-regexp-in-string
      "_.."
-     (lambda (x) (byte-to-string (string-to-number (substring x 1) 16)))
+     (lambda (x) (format "%c" (string-to-number (substring x 1) 16)))
      string)))
 
 
@@ -1618,6 +1606,7 @@ and \"org.freedesktop.DBus.Properties.GetAll\", which is slow."
 It will be registered for all objects created by `dbus-register-method'."
   (let* ((last-input-event last-input-event)
 	 (bus (dbus-event-bus-name last-input-event))
+	 (service (dbus-event-service-name last-input-event))
 	 (path (dbus-event-path-name last-input-event)))
     ;; "GetManagedObjects" returns "a{oa{sa{sv}}}".
     (let (interfaces result)
@@ -1633,7 +1622,8 @@ It will be registered for all objects created by `dbus-register-method'."
       ;; Check all registered object paths.
       (maphash
        (lambda (key val)
-	 (let ((object (or (nth 2 (car-safe val)) "")))
+	 (let ((object (or (nth 2 (car-safe val)) ""))
+	       (interface (nth 2 key)))
 	   (when (and (equal (butlast key 2) (list :method bus))
 		      (string-prefix-p path object))
 	     (dolist (interface (cons (nth 2 key) interfaces))

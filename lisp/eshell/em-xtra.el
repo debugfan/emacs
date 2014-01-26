@@ -1,6 +1,6 @@
-;;; em-xtra.el --- extra alias functions  -*- lexical-binding:t -*-
+;;; em-xtra.el --- extra alias functions
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -23,7 +23,6 @@
 
 ;;; Code:
 
-(require 'esh-util)
 (eval-when-compile
   (require 'eshell)
   (require 'pcomplete))
@@ -40,8 +39,6 @@ naturally accessible within Emacs."
   :group 'eshell-module))
 
 ;;; Functions:
-
-(autoload 'eshell-parse-command "esh-cmd")
 
 (defun eshell/expr (&rest args)
   "Implementation of expr, using the calc package."

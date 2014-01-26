@@ -1,6 +1,6 @@
 ;;; master.el --- make a buffer the master over another buffer
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: Alex Schroeder <alex@gnu.org>
 ;; Maintainer: Alex Schroeder <alex@gnu.org>
@@ -53,11 +53,10 @@
 
 ;;; Code:
 
-;; Unused.
-;;; (defgroup master nil
-;;;   "Support for master/slave relationships between buffers."
-;;;   :version "22.1"
-;;;   :group 'convenience)
+(defgroup master nil
+  "Support for master/slave relationships between buffers."
+  :version "22.1"
+  :group 'convenience)
 
 ;; Variables that don't need initialization.
 
@@ -85,8 +84,7 @@ using the following commands:
 The slave buffer is stored in the buffer-local variable `master-of'.
 You can set this variable using `master-set-slave'.  You can show
 yourself the value of `master-of' by calling `master-show-slave'."
-  ;; Not global, so no effect.
-;;;  :group 'master
+  :group 'master
   :keymap
   '(("\C-c\C-n" . master-says-scroll-up)
     ("\C-c\C-p" . master-says-scroll-down)

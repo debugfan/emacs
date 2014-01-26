@@ -1,6 +1,6 @@
 ;;; compare-w.el --- compare text between windows for Emacs
 
-;; Copyright (C) 1986, 1989, 1993, 1997, 2001-2014 Free Software
+;; Copyright (C) 1986, 1989, 1993, 1997, 2001-2013 Free Software
 ;; Foundation, Inc.
 
 ;; Maintainer: FSF
@@ -35,7 +35,7 @@
   :prefix "compare-"
   :group 'tools)
 
-(defcustom compare-windows-whitespace "\\(\\s-\\|\n\\|\240\\)+"
+(defcustom compare-windows-whitespace "\\(\\s-\\|\n\\)+"
   "Regexp or function that defines whitespace sequences for `compare-windows'.
 That command optionally ignores changes in whitespace.
 
@@ -49,18 +49,17 @@ any text before that point.
 
 If the function returns the same value for both windows, then the
 whitespace is considered to match, and is skipped."
-  :version "24.4"			; added \240
   :type '(choice regexp function)
   :group 'compare-windows)
 
 (defcustom compare-ignore-whitespace nil
-  "Non-nil means command `compare-windows' ignores whitespace."
+  "Non-nil means `compare-windows' ignores whitespace."
   :type 'boolean
   :group 'compare-windows
   :version "22.1")
 
 (defcustom compare-ignore-case nil
-  "Non-nil means command `compare-windows' ignores case differences."
+  "Non-nil means `compare-windows' ignores case differences."
   :type 'boolean
   :group 'compare-windows)
 
@@ -179,7 +178,7 @@ on third call it again advances points to the next difference and so on."
                            'compare-windows-sync-regexp
                          compare-windows-sync)))
     (setq p1 (point) b1 (current-buffer))
-    (setq w2 (next-window))
+    (setq w2 (next-window (selected-window)))
     (if (eq w2 (selected-window))
 	(setq w2 (next-window (selected-window) nil 'visible)))
     (if (eq w2 (selected-window))
@@ -380,7 +379,7 @@ on third call it again advances points to the next difference and so on."
 	(delete-overlay compare-windows-overlay2)))))
 
 (defun compare-windows-dehighlight ()
-  "Remove highlighting created by function `compare-windows-highlight'."
+  "Remove highlighting created by `compare-windows-highlight'."
   (interactive)
   (remove-hook 'pre-command-hook 'compare-windows-dehighlight)
   (mapc 'delete-overlay compare-windows-overlays1)

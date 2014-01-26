@@ -1,11 +1,11 @@
 ;;; org-bibtex.el --- Org links to BibTeX entries
 ;;
-;; Copyright (C) 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2013 Free Software Foundation, Inc.
 ;;
-;; Authors: Bastien Guerry <bzg@gnu.org>
+;; Authors: Bastien Guerry <bzg at altern dot org>
 ;;       Carsten Dominik <carsten dot dominik at gmail dot com>
 ;;       Eric Schulte <schulte dot eric at gmail dot com>
-;; Keywords: org, wp, capture
+;; Keywords: org, wp, remember
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -31,7 +31,7 @@
 ;; the link that contains the author name, the year and a short title.
 ;;
 ;; It also stores detailed information about the entry so that
-;; capture templates can access and enter this information easily.
+;; remember templates can access and enter this information easily.
 ;;
 ;; The available properties for each entry are listed here:
 ;;
@@ -41,14 +41,14 @@
 ;; :booktitle     :month          :annote      :abstract
 ;; :key           :btype
 ;;
-;; Here is an example of a capture template that use some of this
+;; Here is an example of a remember template that use some of this
 ;; information (:author :year :title :journal :pages):
 ;;
-;; (setq org-capture-templates
+;; (setq org-remember-templates
 ;;   '((?b "* READ %?\n\n%a\n\n%:author (%:year): %:title\n   \
 ;;          In %:journal, %:pages.")))
 ;;
-;; Let's say you want to capture this BibTeX entry:
+;; Let's say you want to remember this BibTeX entry:
 ;;
 ;; @Article{dolev83,
 ;;   author = 	 {Danny Dolev and Andrew C. Yao},
@@ -61,7 +61,7 @@
 ;;   month =	 {Mars}
 ;; }
 ;;
-;; M-x `org-capture' on this entry will produce this buffer:
+;; M-x `org-remember' on this entry will produce this buffer:
 ;;
 ;; =====================================================================
 ;; * READ <== [point here]
@@ -94,7 +94,7 @@
 ;;
 ;; The link creation part has been part of Org-mode for a long time.
 ;;
-;; Creating better capture template information was inspired by a request
+;; Creating better remember template information was inspired by a request
 ;; of Austin Frank: http://article.gmane.org/gmane.emacs.orgmode/4112
 ;; and then implemented by Bastien Guerry.
 ;;
@@ -120,6 +120,7 @@
 (declare-function bibtex-generate-autokey "bibtex" ())
 (declare-function bibtex-parse-entry "bibtex" (&optional content))
 (declare-function bibtex-url "bibtex" (&optional pos no-browse))
+(declare-function longlines-mode "longlines" (&optional arg))
 (declare-function org-babel-trim "ob" (string &optional regexp))
 
 
@@ -224,9 +225,7 @@
 For example setting to 'BIB_' would allow interoperability with fireforg."
   :group 'org-bibtex
   :version "24.1"
-  :type  '(choice
-	   (const nil)
-	   (string)))
+  :type  'string)
 
 (defcustom org-bibtex-treat-headline-as-title t
   "Treat headline text as title if title property is absent.
@@ -293,13 +292,12 @@ This variable is relevant only if `org-bibtex-export-tags-as-keywords' is t."
 
 ;;; Utility functions
 (defun org-bibtex-get (property)
-  (let ((it (let ((org-special-properties
-                   (delete "FILE" (copy-sequence org-special-properties))))
-              (or
-               (org-entry-get (point) (upcase property))
-               (org-entry-get (point) (concat org-bibtex-prefix
-                                              (upcase property)))))))
-    (when it (org-babel-trim it))))
+  ((lambda (it) (when it (org-babel-trim it)))
+   (let ((org-special-properties
+	  (delete "FILE" (copy-sequence org-special-properties))))
+     (or
+      (org-entry-get (point) (upcase property))
+      (org-entry-get (point) (concat org-bibtex-prefix (upcase property)))))))
 
 (defun org-bibtex-put (property value)
   (let ((prop (upcase (if (keywordp property)
@@ -383,10 +381,10 @@ This variable is relevant only if `org-bibtex-export-tags-as-keywords' is t."
 	   (buf-name (format "*Bibtex Help %s*" name)))
       (with-output-to-temp-buffer buf-name
 	(princ (cdr (assoc field org-bibtex-fields))))
-      (with-current-buffer buf-name (visual-line-mode 1))
+      (with-current-buffer buf-name (longlines-mode t))
       (org-fit-window-to-buffer (get-buffer-window buf-name))
-      (let ((result (read-from-minibuffer (format "%s: " name))))
-        (when (> (length result) 0) result)))))
+      ((lambda (result) (when (> (length result) 0) result))
+       (read-from-minibuffer (format "%s: " name))))))
 
 (defun org-bibtex-autokey ()
   "Generate an autokey for the current headline."
@@ -540,21 +538,20 @@ Headlines are exported using `org-bibtex-export-headline'."
 	  "Bibtex file: " nil nil nil
 	  (file-name-nondirectory
 	   (concat (file-name-sans-extension (buffer-file-name)) ".bib")))))
-  (let ((error-point
-         (catch 'bib
-           (let ((bibtex-entries
-                  (remove nil (org-map-entries
-                               (lambda ()
-                                 (condition-case foo
-                                     (org-bibtex-headline)
-                                   (error (throw 'bib (point)))))))))
-             (with-temp-file filename
-               (insert (mapconcat #'identity bibtex-entries "\n")))
-             (message "Successfully exported %d BibTeX entries to %s"
-                      (length bibtex-entries) filename) nil))))
-    (when error-point
-      (goto-char error-point)
-      (message "Bibtex error at %S" (nth 4 (org-heading-components))))))
+  ((lambda (error-point)
+     (when error-point
+       (goto-char error-point)
+       (message "Bibtex error at %S" (nth 4 (org-heading-components)))))
+   (catch 'bib
+     (let ((bibtex-entries (remove nil (org-map-entries
+					(lambda ()
+					  (condition-case foo
+					      (org-bibtex-headline)
+					    (error (throw 'bib (point)))))))))
+       (with-temp-file filename
+	 (insert (mapconcat #'identity bibtex-entries "\n")))
+       (message "Successfully exported %d BibTeX entries to %s"
+		(length bibtex-entries) filename) nil))))
 
 (defun org-bibtex-check (&optional optional)
   "Check the current headline for required fields.
@@ -562,8 +559,8 @@ With prefix argument OPTIONAL also prompt for optional fields."
   (interactive "P")
   (save-restriction
     (org-narrow-to-subtree)
-    (let ((type (let ((name (org-bibtex-get org-bibtex-type-property-name)))
-                  (when name (intern (concat ":" name))))))
+    (let ((type ((lambda (name) (when name (intern (concat ":" name))))
+                 (org-bibtex-get org-bibtex-type-property-name))))
       (when type (org-bibtex-fleshout type optional)))))
 
 (defun org-bibtex-check-all (&optional optional)
@@ -627,27 +624,6 @@ This uses `bibtex-parse-entry'."
            (save-excursion (bibtex-beginning-of-entry) (bibtex-parse-entry)))
           org-bibtex-entries)))
 
-(defun org-bibtex-read-buffer (buffer)
-  "Read all bibtex entries in BUFFER and save to `org-bibtex-entries'.
-Return the number of saved entries."
-  (interactive "bbuffer: ")
-  (let ((start-length (length org-bibtex-entries)))
-    (with-current-buffer buffer
-      (save-excursion
-	(goto-char (point-max))
-	(while (not (= (point) (point-min)))
-	  (backward-char 1)
-	  (org-bibtex-read)
-	  (bibtex-beginning-of-entry))))
-    (let ((added (- (length org-bibtex-entries) start-length)))
-      (message "parsed %d entries" added)
-      added)))
-
-(defun org-bibtex-read-file (file)
-  "Read FILE with `org-bibtex-read-buffer'."
-  (interactive "ffile: ")
-  (org-bibtex-read-buffer (find-file-noselect file 'nowarn 'rawfile)))
-
 (defun org-bibtex-write ()
   "Insert a heading built from the first element of `org-bibtex-entries'."
   (interactive)
@@ -688,14 +664,6 @@ Return the number of saved entries."
     (if entry
 	(org-bibtex-write)
       (error "Yanked text does not appear to contain a BibTeX entry"))))
-
-(defun org-bibtex-import-from-file (file)
-  "Read bibtex entries from FILE and insert as Org-mode headlines after point."
-  (interactive "ffile: ")
-  (dotimes (_ (org-bibtex-read-file file))
-    (save-excursion (org-bibtex-write))
-    (re-search-forward org-property-end-re)
-    (open-line 1) (forward-char 1)))
 
 (defun org-bibtex-export-to-kill-ring ()
   "Export current headline to kill ring as bibtex entry."

@@ -1,6 +1,6 @@
 ;;; gnus-cus.el --- customization commands for Gnus
 
-;; Copyright (C) 1996, 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1996, 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: Per Abrahamsen <abraham@dina.kvl.dk>
 ;; Keywords: news
@@ -33,7 +33,7 @@
 
 ;;; Widgets:
 
-(define-derived-mode gnus-custom-mode fundamental-mode "Gnus Customize"
+(defun gnus-custom-mode ()
   "Major mode for editing Gnus customization buffers.
 
 The following commands are available:
@@ -45,6 +45,9 @@ The following commands are available:
 
 Entry to this mode calls the value of `gnus-custom-mode-hook'
 if that value is non-nil."
+  (kill-all-local-variables)
+  (setq major-mode 'gnus-custom-mode
+	mode-name "Gnus Customize")
   (use-local-map widget-keymap)
   ;; Emacs stuff:
   (when (and (facep 'custom-button-face)
@@ -60,7 +63,8 @@ if that value is non-nil."
     (set (make-local-variable 'widget-push-button-prefix) "")
     (set (make-local-variable 'widget-push-button-suffix) "")
     (set (make-local-variable 'widget-link-prefix) "")
-    (set (make-local-variable 'widget-link-suffix) "")))
+    (set (make-local-variable 'widget-link-suffix) ""))
+  (gnus-run-mode-hooks 'gnus-custom-mode-hook))
 
 ;;; Group Customization:
 

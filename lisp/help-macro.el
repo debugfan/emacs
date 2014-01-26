@@ -1,6 +1,6 @@
 ;;; help-macro.el --- makes command line help such as help-for-help
 
-;; Copyright (C) 1993-1994, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1993-1994, 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: Lynn Slater <lrs@indetech.com>
 ;; Maintainer: FSF
@@ -134,11 +134,11 @@ and then returns."
 		   (when (or (eq char ??) (eq char help-char)
 			     (memq char help-event-list))
 		     (setq config (current-window-configuration))
-		     (pop-to-buffer " *Metahelp*" nil t)
+		     (switch-to-buffer-other-window "*Help*")
 		     (and (fboundp 'make-frame)
-			  (not (eq (window-frame)
+			  (not (eq (window-frame (selected-window))
 				   prev-frame))
-			  (setq new-frame (window-frame)
+			  (setq new-frame (window-frame (selected-window))
 				config nil))
 		     (setq buffer-read-only nil)
 		     (let ((inhibit-read-only t))

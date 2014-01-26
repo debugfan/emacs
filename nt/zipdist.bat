@@ -1,5 +1,5 @@
 @echo off
-rem Copyright (C) 2001-2014 Free Software Foundation, Inc.
+rem Copyright (C) 2001-2013 Free Software Foundation, Inc.
 
 rem Author: Christoph Scholtes cschol2112 at gmail.com
 
@@ -25,8 +25,9 @@ set EMACS_VER=%1
 set TMP_DIST_DIR=emacs-%EMACS_VER%
 
 rem Check, if 7zip is installed and available on path
-7z 1>NUL 2>NUL
-if %ERRORLEVEL% NEQ 0 goto ZIP_ERROR
+:ZIP_CHECK
+7z
+if %ERRORLEVEL% NEQ 0 goto :ZIP_ERROR
 goto ZIP_DIST
 
 :ZIP_ERROR
@@ -34,10 +35,14 @@ echo.
 echo ERROR: Make sure 7zip is installed and available on the Windows Path!
 goto EXIT
 
-rem Build and verify the binary distribution
+rem Build distributions
 :ZIP_DIST
+rem Build and verify full distribution
 7z a -bd -tZIP -mx=9 -x!.bzrignore -x!.gitignore -xr!emacs.mdp -xr!*.pdb -xr!*.opt -xr!*~ -xr!CVS -xr!.arch-inventory emacs-%EMACS_VER%-bin-i386.zip %TMP_DIST_DIR%
 7z t emacs-%EMACS_VER%-bin-i386.zip
+rem Build and verify binary only distribution
+7z a -bd -tZIP -mx=9 -x!.bzrignore -x!.gitignore -xr!emacs.mdp -xr!*.pdb -xr!*.opt -xr!*~ -xr!CVS -xr!.arch-inventory emacs-%EMACS_VER%-barebin-i386.zip %TMP_DIST_DIR%/README.W32 %TMP_DIST_DIR%/bin %TMP_DIST_DIR%/etc/DOC-X %TMP_DIST_DIR%/COPYING
+7z t emacs-%EMACS_VER%-barebin-i386.zip
 goto EXIT
 
 :EXIT

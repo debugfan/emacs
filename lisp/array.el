@@ -1,6 +1,6 @@
 ;;; array.el --- array editing commands for GNU Emacs
 
-;; Copyright (C) 1987, 2000-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1987, 2000-2013 Free Software Foundation, Inc.
 
 ;; Author: David M. Brown
 ;; Maintainer: FSF
@@ -800,7 +800,7 @@ Return COLUMN."
 (put 'array-mode 'mode-class 'special)
 
 ;;;###autoload
-(define-derived-mode array-mode fundamental-mode "Array"
+(defun array-mode ()
   "Major mode for editing arrays.
 
   Array mode is a specialized mode for editing arrays.  An array is
@@ -863,6 +863,9 @@ take a numeric prefix argument):
         \\[array-display-local-variables]   Display the current values of local variables.
 
 Entering array mode calls the function `array-mode-hook'."
+
+  (interactive)
+  (kill-all-local-variables)
   (make-local-variable 'array-buffer-line)
   (make-local-variable 'array-buffer-column)
   (make-local-variable 'array-row)
@@ -885,9 +888,13 @@ Entering array mode calls the function `array-mode-hook'."
        (+ (floor (1- array-max-column) array-columns-per-line)
           (if array-rows-numbered 2 1)))
   (message "")
+  (setq major-mode 'array-mode)
+  (setq mode-name "Array")
   (force-mode-line-update)
   (set (make-local-variable 'truncate-lines) t)
-  (setq overwrite-mode 'overwrite-mode-textual))
+  (setq overwrite-mode 'overwrite-mode-textual)
+  (use-local-map array-mode-map)
+  (run-mode-hooks 'array-mode-hook))
 
 
 

@@ -1,6 +1,6 @@
 ;;; regexp-opt.el --- generate efficient regexps to match strings
 
-;; Copyright (C) 1994-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1994-2013 Free Software Foundation, Inc.
 
 ;; Author: Simon Marshall <simon@gnu.org>
 ;; Maintainer: FSF
@@ -285,9 +285,7 @@ CHARS should be a list of characters."
     ;;
     ;; Make sure a caret is not first and a dash is first or last.
     (if (and (string-equal charset "") (string-equal bracket ""))
-	(if (string-equal dash "")
-            "\\^"                       ; [^] is not a valid regexp
-          (concat "[" dash caret "]"))
+	(concat "[" dash caret "]")
       (concat "[" bracket charset caret dash "]"))))
 
 (provide 'regexp-opt)

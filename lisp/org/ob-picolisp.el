@@ -1,6 +1,6 @@
 ;;; ob-picolisp.el --- org-babel functions for picolisp evaluation
 
-;; Copyright (C) 2010-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2013 Free Software Foundation, Inc.
 
 ;; Authors: Thorsten Jolitz
 ;;	 Eric Schulte
@@ -54,6 +54,8 @@
 
 ;;; Code:
 (require 'ob)
+(require 'ob-eval)
+(require 'ob-comint)
 (require 'comint)
 (eval-when-compile (require 'cl))
 
@@ -78,7 +80,7 @@
   :version "24.1"
   :type 'string)
 
-(defun org-babel-expand-body:picolisp (body params)
+(defun org-babel-expand-body:picolisp (body params &optional processed-params)
   "Expand BODY according to PARAMS, return the expanded body."
   (let ((vars (mapcar #'cdr (org-babel-get-header params :var)))
         (result-params (cdr (assoc :result-params params)))
@@ -99,16 +101,16 @@
  called by `org-babel-execute-src-block'"
   (message "executing Picolisp source code block")
   (let* (
-	 ;; Name of the session or "none".
+	 ;; name of the session or "none"
 	 (session-name (cdr (assoc :session params)))
-	 ;; Set the session if the session variable is non-nil.
+	 ;; set the session if the session variable is non-nil
 	 (session (org-babel-picolisp-initiate-session session-name))
-	 ;; Either OUTPUT or VALUE which should behave as described above.
+	 ;; either OUTPUT or VALUE which should behave as described above
 	 (result-type (cdr (assoc :result-type params)))
 	 (result-params (cdr (assoc :result-params params)))
-	 ;; Expand the body with `org-babel-expand-body:picolisp'.
+	 ;; expand the body with `org-babel-expand-body:picolisp'
 	 (full-body (org-babel-expand-body:picolisp body params))
-         ;; Wrap body appropriately for the type of evaluation and results.
+         ;; wrap body appropriately for the type of evaluation and results
          (wrapped-body
           (cond
            ((or (member "code" result-params)
@@ -118,54 +120,58 @@
             (format "(print (out \"/dev/null\" %s))" full-body))
            ((member "value" result-params)
             (format "(out \"/dev/null\" %s)" full-body))
-           (t full-body)))
-         (result
-          (if (not (string= session-name "none"))
-              ;; Session based evaluation.
-              (mapconcat ;; <- joins the list back into a single string
-               #'identity
-               (butlast ;; <- remove the org-babel-picolisp-eoe line
-                (delq nil
-                      (mapcar
-                       (lambda (line)
-                         (org-babel-chomp      ;; Remove trailing newlines.
-                          (when (> (length line) 0) ;; Remove empty lines.
-                            (cond
-                             ;; Remove leading "-> " from return values.
-                             ((and (>= (length line) 3)
-                                   (string= "-> " (substring line 0 3)))
-                              (substring line 3))
-                             ;; Remove trailing "-> <<return-value>>" on the
-                             ;; last line of output.
-                             ((and (member "output" result-params)
-                                   (string-match-p "->" line))
-                              (substring line 0 (string-match "->" line)))
-                             (t line)
-                             )
-                            ;;(if (and (>= (length line) 3);Remove leading "<-"
-                            ;;         (string= "-> " (substring line 0 3)))
-                            ;;    (substring line 3)
-                            ;;  line)
-                            )))
-                       ;; Returns a list of the output of each evaluated exp.
-                       (org-babel-comint-with-output
-                           (session org-babel-picolisp-eoe)
-                         (insert wrapped-body) (comint-send-input)
-                         (insert "'" org-babel-picolisp-eoe)
-                         (comint-send-input)))))
-               "\n")
-            ;; external evaluation
-            (let ((script-file (org-babel-temp-file "picolisp-script-")))
-              (with-temp-file script-file
-                (insert (concat wrapped-body "(bye)")))
-              (org-babel-eval
-               (format "%s %s"
-                       org-babel-picolisp-cmd
-                       (org-babel-process-file-name script-file))
-               "")))))
-    (org-babel-result-cond result-params
-      result
-      (read result))))
+           (t full-body))))
+
+    ((lambda (result)
+       (if (or (member "verbatim" result-params)
+               (member "scalar" result-params)
+               (member "output" result-params)
+               (member "code" result-params)
+               (member "pp" result-params)
+               (= (length result) 0))
+           result
+         (read result)))
+     (if (not (string= session-name "none"))
+         ;; session based evaluation
+	 (mapconcat ;; <- joins the list back together into a single string
+          #'identity
+          (butlast ;; <- remove the org-babel-picolisp-eoe line
+           (delq nil
+                 (mapcar
+                  (lambda (line)
+                    (org-babel-chomp ;; remove trailing newlines
+                     (when (> (length line) 0) ;; remove empty lines
+		       (cond
+			;; remove leading "-> " from return values
+			((and (>= (length line) 3)
+			      (string= "-> " (substring line 0 3)))
+			 (substring line 3))
+			;; remove trailing "-> <<return-value>>" on the
+			;; last line of output
+			((and (member "output" result-params)
+			      (string-match-p "->" line))
+			 (substring line 0 (string-match "->" line)))
+			(t line)
+			)
+                       ;; (if (and (>= (length line) 3) ;; remove leading "<- "
+                       ;;          (string= "-> " (substring line 0 3)))
+                       ;;     (substring line 3)
+                       ;;   line)
+		       )))
+                  ;; returns a list of the output of each evaluated expression
+                  (org-babel-comint-with-output (session org-babel-picolisp-eoe)
+                    (insert wrapped-body) (comint-send-input)
+                    (insert "'" org-babel-picolisp-eoe) (comint-send-input)))))
+          "\n")
+       ;; external evaluation
+       (let ((script-file (org-babel-temp-file "picolisp-script-")))
+	 (with-temp-file script-file
+	   (insert (concat wrapped-body "(bye)")))
+         (org-babel-eval
+          (format "%s %s"
+                  org-babel-picolisp-cmd
+                  (org-babel-process-file-name script-file))
+          ""))))))
 
 (defun org-babel-picolisp-initiate-session (&optional session-name)
   "If there is not a current inferior-process-buffer in SESSION

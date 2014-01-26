@@ -1,5 +1,5 @@
 /* ftfont.c -- FreeType font driver.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2013 Free Software Foundation, Inc.
    Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011
      National Institute of Advanced Industrial Science and Technology (AIST)
      Registration Number H13PRO009
@@ -54,7 +54,7 @@ static Lisp_Object freetype_font_cache;
 /* Cache for FT_Face and FcCharSet. */
 static Lisp_Object ft_face_cache;
 
-/* The actual structure for FreeType font that can be cast to struct
+/* The actual structure for FreeType font that can be casted to struct
    font.  */
 
 struct ftfont_info
@@ -393,14 +393,16 @@ ftfont_lookup_cache (Lisp_Object key, enum ftfont_cache_for cache_for)
       cache_data = xmalloc (sizeof *cache_data);
       cache_data->ft_face = NULL;
       cache_data->fc_charset = NULL;
-      val = make_save_ptr_int (cache_data, 0);
+      val = make_save_value (NULL, 0);
+      XSAVE_VALUE (val)->integer = 0;
+      XSAVE_VALUE (val)->pointer = cache_data;
       cache = Fcons (Qnil, val);
       Fputhash (key, cache, ft_face_cache);
     }
   else
     {
       val = XCDR (cache);
-      cache_data = XSAVE_POINTER (val, 0);
+      cache_data = XSAVE_VALUE (val)->pointer;
     }
 
   if (cache_for == FTFONT_CACHE_FOR_ENTITY)
@@ -466,7 +468,7 @@ ftfont_get_fc_charset (Lisp_Object entity)
 
   cache = ftfont_lookup_cache (entity, FTFONT_CACHE_FOR_CHARSET);
   val = XCDR (cache);
-  cache_data = XSAVE_POINTER (val, 0);
+  cache_data = XSAVE_VALUE (val)->pointer;
   return cache_data->fc_charset;
 }
 
@@ -493,12 +495,12 @@ ftfont_get_otf (struct ftfont_info *ftfont_info)
 }
 #endif	/* HAVE_LIBOTF */
 
-static Lisp_Object ftfont_get_cache (struct frame *);
-static Lisp_Object ftfont_list (struct frame *, Lisp_Object);
-static Lisp_Object ftfont_match (struct frame *, Lisp_Object);
-static Lisp_Object ftfont_list_family (struct frame *);
-static Lisp_Object ftfont_open (struct frame *, Lisp_Object, int);
-static void ftfont_close (struct font *);
+static Lisp_Object ftfont_get_cache (FRAME_PTR);
+static Lisp_Object ftfont_list (Lisp_Object, Lisp_Object);
+static Lisp_Object ftfont_match (Lisp_Object, Lisp_Object);
+static Lisp_Object ftfont_list_family (Lisp_Object);
+static Lisp_Object ftfont_open (FRAME_PTR, Lisp_Object, int);
+static void ftfont_close (FRAME_PTR, struct font *);
 static int ftfont_has_char (Lisp_Object, int);
 static unsigned ftfont_encode_char (struct font *, int);
 static int ftfont_text_extents (struct font *, unsigned *, int,
@@ -568,7 +570,7 @@ struct font_driver ftfont_driver =
   };
 
 static Lisp_Object
-ftfont_get_cache (struct frame *f)
+ftfont_get_cache (FRAME_PTR f)
 {
   return freetype_font_cache;
 }
@@ -884,7 +886,7 @@ ftfont_spec_pattern (Lisp_Object spec, char *otlayout, struct OpenTypeSpec **ots
 }
 
 static Lisp_Object
-ftfont_list (struct frame *f, Lisp_Object spec)
+ftfont_list (Lisp_Object frame, Lisp_Object spec)
 {
   Lisp_Object val = Qnil, family, adstyle;
   int i;
@@ -1011,7 +1013,6 @@ ftfont_list (struct frame *f, Lisp_Object spec)
       if (otspec)
 	{
 	  FcChar8 *file;
-	  bool passed;
 	  OTF *otf;
 
 	  if (FcPatternGetString (fontset->fonts[i], FC_FILE, 0, &file)
@@ -1020,16 +1021,14 @@ ftfont_list (struct frame *f, Lisp_Object spec)
 	  otf = OTF_open ((char *) file);
 	  if (! otf)
 	    continue;
-	  passed = (OTF_check_features (otf, 1, otspec->script_tag,
-					otspec->langsys_tag,
-					otspec->features[0],
-					otspec->nfeatures[0]) == 1
-		    && OTF_check_features (otf, 0, otspec->script_tag,
-					   otspec->langsys_tag,
-					   otspec->features[1],
-					   otspec->nfeatures[1]) == 1);
-	  OTF_close (otf);
-	  if (!passed)
+	  if (OTF_check_features (otf, 1,
+				  otspec->script_tag, otspec->langsys_tag,
+				  otspec->features[0],
+				  otspec->nfeatures[0]) != 1
+	      || OTF_check_features (otf, 0,
+				     otspec->script_tag, otspec->langsys_tag,
+				     otspec->features[1],
+				     otspec->nfeatures[1]) != 1)
 	    continue;
 	}
 #endif	/* HAVE_LIBOTF */
@@ -1083,7 +1082,7 @@ ftfont_list (struct frame *f, Lisp_Object spec)
 }
 
 static Lisp_Object
-ftfont_match (struct frame *f, Lisp_Object spec)
+ftfont_match (Lisp_Object frame, Lisp_Object spec)
 {
   Lisp_Object entity = Qnil;
   FcPattern *pattern, *match = NULL;
@@ -1133,7 +1132,7 @@ ftfont_match (struct frame *f, Lisp_Object spec)
 }
 
 static Lisp_Object
-ftfont_list_family (struct frame *f)
+ftfont_list_family (Lisp_Object frame)
 {
   Lisp_Object list = Qnil;
   FcPattern *pattern = NULL;
@@ -1176,7 +1175,7 @@ ftfont_list_family (struct frame *f)
 
 
 static Lisp_Object
-ftfont_open (struct frame *f, Lisp_Object entity, int pixel_size)
+ftfont_open (FRAME_PTR f, Lisp_Object entity, int pixel_size)
 {
   struct ftfont_info *ftfont_info;
   struct font *font;
@@ -1201,9 +1200,9 @@ ftfont_open (struct frame *f, Lisp_Object entity, int pixel_size)
   filename = XCAR (val);
   idx = XCDR (val);
   val = XCDR (cache);
-  cache_data = XSAVE_POINTER (XCDR (cache), 0);
+  cache_data = XSAVE_VALUE (XCDR (cache))->pointer;
   ft_face = cache_data->ft_face;
-  if (XSAVE_INTEGER (val, 1) > 0)
+  if (XSAVE_VALUE (val)->integer > 0)
     {
       /* FT_Face in this cache is already used by the different size.  */
       if (FT_New_Size (ft_face, &ft_size) != 0)
@@ -1214,13 +1213,13 @@ ftfont_open (struct frame *f, Lisp_Object entity, int pixel_size)
 	  return Qnil;
 	}
     }
-  set_save_integer (val, 1, XSAVE_INTEGER (val, 1) + 1);
+  XSAVE_VALUE (val)->integer++;
   size = XINT (AREF (entity, FONT_SIZE_INDEX));
   if (size == 0)
     size = pixel_size;
   if (FT_Set_Pixel_Sizes (ft_face, size, size) != 0)
     {
-      if (XSAVE_INTEGER (val, 1) == 0)
+      if (XSAVE_VALUE (val)->integer == 0)
 	FT_Done_Face (ft_face);
       return Qnil;
     }
@@ -1320,7 +1319,7 @@ ftfont_open (struct frame *f, Lisp_Object entity, int pixel_size)
 }
 
 static void
-ftfont_close (struct font *font)
+ftfont_close (FRAME_PTR f, struct font *font)
 {
   struct ftfont_info *ftfont_info = (struct ftfont_info *) font;
   Lisp_Object val, cache;
@@ -1329,10 +1328,10 @@ ftfont_close (struct font *font)
   cache = ftfont_lookup_cache (val, FTFONT_CACHE_FOR_FACE);
   eassert (CONSP (cache));
   val = XCDR (cache);
-  set_save_integer (val, 1, XSAVE_INTEGER (val, 1) - 1);
-  if (XSAVE_INTEGER (val, 1) == 0)
+  (XSAVE_VALUE (val)->integer)--;
+  if (XSAVE_VALUE (val)->integer == 0)
     {
-      struct ftfont_cache_data *cache_data = XSAVE_POINTER (val, 0);
+      struct ftfont_cache_data *cache_data = XSAVE_VALUE (val)->pointer;
 
       FT_Done_Face (cache_data->ft_face);
 #ifdef HAVE_LIBOTF
@@ -1481,6 +1480,7 @@ ftfont_get_bitmap (struct font *font, unsigned int code, struct font_bitmap *bit
   bitmap->left = ft_face->glyph->bitmap_left;
   bitmap->top = ft_face->glyph->bitmap_top;
   bitmap->advance = ft_face->glyph->metrics.horiAdvance >> 6;
+  bitmap->extra = NULL;
 
   return 0;
 }
@@ -2427,6 +2427,7 @@ ftfont_shape_by_flt (Lisp_Object lgstring, struct font *font,
     }
 
   len = i;
+  lint_assume (len <= STRING_BYTES_BOUND);
 
   if (with_variation_selector)
     {
@@ -2542,7 +2543,7 @@ ftfont_shape_by_flt (Lisp_Object lgstring, struct font *font,
 
       if (NILP (lglyph))
 	{
-	  lglyph = LGLYPH_NEW ();
+	  lglyph = Fmake_vector (make_number (LGLYPH_SIZE), Qnil);
 	  LGSTRING_SET_GLYPH (lgstring, i, lglyph);
 	}
       LGLYPH_SET_FROM (lglyph, g->from);
@@ -2556,8 +2557,9 @@ ftfont_shape_by_flt (Lisp_Object lgstring, struct font *font,
       LGLYPH_SET_DESCENT (lglyph, g->descent >> 6);
       if (g->adjusted)
 	{
-	  Lisp_Object vec = make_uninit_vector (3);
+	  Lisp_Object vec;
 
+	  vec = Fmake_vector (make_number (3), Qnil);
 	  ASET (vec, 0, make_number (g->xoff >> 6));
 	  ASET (vec, 1, make_number (g->yoff >> 6));
 	  ASET (vec, 2, make_number (g->xadv >> 6));
@@ -2704,12 +2706,13 @@ syms_of_ftfont (void)
   DEFSYM (Qsans__serif, "sans serif");
 
   staticpro (&freetype_font_cache);
-  freetype_font_cache = list1 (Qt);
+  freetype_font_cache = Fcons (Qt, Qnil);
 
   staticpro (&ftfont_generic_family_list);
-  ftfont_generic_family_list = list3 (Fcons (Qmonospace, Qt),
-				      Fcons (Qsans_serif, Qt),
-				      Fcons (Qsans, Qt));
+  ftfont_generic_family_list
+    = Fcons (Fcons (Qmonospace, Qt),
+	     Fcons (Fcons (Qsans_serif, Qt),
+		    Fcons (Fcons (Qsans, Qt), Qnil)));
 
   staticpro (&ft_face_cache);
   ft_face_cache = Qnil;

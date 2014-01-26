@@ -1,6 +1,6 @@
 ;;; eieio-base.el --- Base classes for EIEIO.
 
-;;; Copyright (C) 2000-2002, 2004-2005, 2007-2014 Free Software
+;;; Copyright (C) 2000-2002, 2004-2005, 2007-2013 Free Software
 ;;; Foundation, Inc.
 
 ;; Author: Eric M. Ludlam  <zappo@gnu.org>
@@ -31,7 +31,6 @@
 ;;; Code:
 
 (require 'eieio)
-(eval-when-compile (require 'cl))       ;FIXME: Use cl-lib!
 
 ;;; eieio-instance-inheritor
 ;;
@@ -66,19 +65,19 @@ SLOT-NAME is the offending slot.  FN is the function signaling the error."
   "Clone OBJ, initializing `:parent' to OBJ.
 All slots are unbound, except those initialized with PARAMS."
   (let ((nobj (make-vector (length obj) eieio-unbound))
-	(nm (eieio--object-name obj))
+	(nm (aref obj object-name))
 	(passname (and params (stringp (car params))))
 	(num 1))
     (aset nobj 0 'object)
-    (setf (eieio--object-class nobj) (eieio--object-class obj))
+    (aset nobj object-class (aref obj object-class))
     ;; The following was copied from the default clone.
     (if (not passname)
 	(save-match-data
 	  (if (string-match "-\\([0-9]+\\)" nm)
 	      (setq num (1+ (string-to-number (match-string 1 nm)))
 		    nm (substring nm 0 (match-beginning 0))))
-	  (setf (eieio--object-name nobj) (concat nm "-" (int-to-string num))))
-      (setf (eieio--object-name nobj) (car params)))
+	  (aset nobj object-name (concat nm "-" (int-to-string num))))
+      (aset nobj object-name (car params)))
     ;; Now initialize from params.
     (if params (shared-initialize nobj (if passname (cdr params) params)))
     (oset nobj parent-instance obj)
@@ -233,7 +232,8 @@ for CLASS.  Optional ALLOW-SUBCLASS says that it is ok for
 being pedantic."
   (unless class
     (message "Unsafe call to `eieio-persistent-read'."))
-  (when class (eieio--check-type class-p class))
+  (when (and class (not (class-p class)))
+    (signal 'wrong-type-argument (list 'class-p class)))
   (let ((ret nil)
 	(buffstr nil))
     (unwind-protect
@@ -308,7 +308,7 @@ Second, any text properties will be stripped from strings."
 	       (type nil)
 	       (classtype nil))
 	   (setq slot-idx (- slot-idx 3))
-	   (setq type (aref (eieio--class-public-type (class-v class))
+	   (setq type (aref (aref (class-v class) class-public-type)
 			    slot-idx))
 
 	   (setq classtype (eieio-persistent-slot-type-is-class-p
@@ -482,13 +482,14 @@ Argument SLOT-NAME is the slot that was attempted to be accessed.
 OPERATION is the type of access, such as `oref' or `oset'.
 NEW-VALUE is the value that was being set into SLOT if OPERATION were
 a set type."
-  (if (memq slot-name '(object-name :object-name))
+  (if (or (eq slot-name 'object-name)
+	  (eq slot-name :object-name))
       (cond ((eq operation 'oset)
 	     (if (not (stringp new-value))
 		 (signal 'invalid-slot-type
 			 (list obj slot-name 'string new-value)))
-	     (eieio-object-set-name-string obj new-value))
-	    (t (eieio-object-name-string obj)))
+	     (object-set-name-string obj new-value))
+	    (t (object-name-string obj)))
     (call-next-method)))
 
 (provide 'eieio-base)

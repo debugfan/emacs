@@ -1,6 +1,6 @@
 /* ebrowse.c --- parsing files for the ebrowse C++ browser
 
-Copyright (C) 1992-2014 Free Software Foundation, Inc.
+Copyright (C) 1992-2013 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -19,7 +19,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 
 #include <config.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -238,7 +237,7 @@ struct member
   char *def_regexp;		/* Regular expression matching definition.  */
   const char *def_filename;	/* File name of definition.  */
   int def_pos;			/* Buffer position of definition.  */
-  char name[FLEXIBLE_ARRAY_MEMBER]; /* Member name.  */
+  char name[1];			/* Member name.  */
 };
 
 /* Structures of this type are used to connect class structures with
@@ -257,7 +256,7 @@ struct alias
   struct alias *next;		/* Next in list.  */
   struct sym *namesp;		/* Namespace in which defined.  */
   struct link *aliasee;		/* List of aliased namespaces (A::B::C...).  */
-  char name[FLEXIBLE_ARRAY_MEMBER]; /* Alias name.  */
+  char name[1];			/* Alias name.  */
 };
 
 /* The structure used to describe a class in the symbol table,
@@ -281,7 +280,7 @@ struct sym
   const char *filename;		/* File in which it can be found.  */
   const char *sfilename; 	/* File in which members can be found.  */
   struct sym *namesp;		/* Namespace in which defined. .  */
-  char name[FLEXIBLE_ARRAY_MEMBER]; /* Name of the class.  */
+  char name[1];                 /* Name of the class.  */
 };
 
 /* Experimental: Print info for `--position-info'.  We print
@@ -514,7 +513,7 @@ static char *
 xstrdup (char *s)
 {
   if (s)
-    return strcpy (xmalloc (strlen (s) + 1), s);
+    s = strcpy (xmalloc (strlen (s) + 1), s);
   return s;
 }
 
@@ -568,8 +567,8 @@ add_sym (const char *name, struct sym *nested_in_class)
 	  puts (name);
 	}
 
-      sym = xmalloc (offsetof (struct sym, name) + strlen (name) + 1);
-      memset (sym, 0, offsetof (struct sym, name));
+      sym = (struct sym *) xmalloc (sizeof *sym + strlen (name));
+      memset (sym, 0, sizeof *sym);
       strcpy (sym->name, name);
       sym->namesp = scope;
       sym->next = class_table[h];
@@ -853,8 +852,7 @@ add_global_decl (char *name, char *regexp, int pos, unsigned int hash, int var, 
 static struct member *
 add_member (struct sym *cls, char *name, int var, int sc, unsigned int hash)
 {
-  struct member *m = xmalloc (offsetof (struct member, name)
-			      + strlen (name) + 1);
+  struct member *m = (struct member *) xmalloc (sizeof *m + strlen (name));
   struct member **list;
   struct member *p;
   struct member *prev;
@@ -964,8 +962,8 @@ mark_inherited_virtual (void)
 static struct sym *
 make_namespace (char *name, struct sym *context)
 {
-  struct sym *s = xmalloc (offsetof (struct sym, name) + strlen (name) + 1);
-  memset (s, 0, offsetof (struct sym, name));
+  struct sym *s = (struct sym *) xmalloc (sizeof *s + strlen (name));
+  memset (s, 0, sizeof *s);
   strcpy (s->name, name);
   s->next = all_namespaces;
   s->namesp = context;
@@ -1048,7 +1046,7 @@ register_namespace_alias (char *new_name, struct link *old_name)
     if (streq (new_name, al->name) && (al->namesp == current_namespace))
       return;
 
-  al = xmalloc (offsetof (struct alias, name) + strlen (new_name) + 1);
+  al = (struct alias *) xmalloc (sizeof *al + strlen (new_name));
   strcpy (al->name, new_name);
   al->next = namespace_alias_table[h];
   al->namesp = current_namespace;
@@ -1096,7 +1094,7 @@ leave_namespace (void)
 /* Write string S to the output file FP in a Lisp-readable form.
    If S is null, write out `()'.  */
 
-static void
+static inline void
 putstr (const char *s, FILE *fp)
 {
   if (!s)
@@ -3481,9 +3479,7 @@ open_file (char *file)
 
 /* Display usage information and exit program.  */
 
-static char const *const usage_message[] =
-  {
-    "\
+#define USAGE "\
 Usage: ebrowse [options] {files}\n\
 \n\
   -a, --append                  append output to existing file\n\
@@ -3491,8 +3487,6 @@ Usage: ebrowse [options] {files}\n\
   -I, --search-path=LIST        set search path for input files\n\
   -m, --min-regexp-length=N     set minimum regexp length to N\n\
   -M, --max-regexp-length=N     set maximum regexp length to N\n\
-",
-    "\
   -n, --no-nested-classes       exclude nested classes\n\
   -o, --output-file=FILE        set output file name to FILE\n\
   -p, --position-info           print info about position in file\n\
@@ -3502,16 +3496,12 @@ Usage: ebrowse [options] {files}\n\
   -x, --no-regexps		don't record regular expressions\n\
       --help                    display this help\n\
       --version			display version info\n\
-\n\
 "
-  };
 
 static _Noreturn void
 usage (int error)
 {
-  int i;
-  for (i = 0; i < sizeof usage_message / sizeof *usage_message; i++)
-    fputs (usage_message[i], stdout);
+  puts (USAGE);
   exit (error ? EXIT_FAILURE : EXIT_SUCCESS);
 }
 

@@ -1,6 +1,6 @@
 ;;; savehist.el --- Save minibuffer history
 
-;; Copyright (C) 1997, 2005-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 2005-2013 Free Software Foundation, Inc.
 
 ;; Author: Hrvoje Niksic <hniksic@xemacs.org>
 ;; Maintainer: FSF
@@ -49,7 +49,7 @@
 
 (require 'custom)
 (eval-when-compile
-  (if (featurep 'xemacs) (require 'cl)))
+  (require 'cl))
 
 ;; User variables
 

@@ -13,6 +13,7 @@
  *
  */
 
+#include <config.h>
 #include "XMenuInt.h"
 
 int
@@ -86,3 +87,4 @@ XMenuChangeSelection(Display *display, register XMenu *menu, register int p_num,
     _XMErrorCode = XME_NO_ERROR;
     return(s_num);
 }
+

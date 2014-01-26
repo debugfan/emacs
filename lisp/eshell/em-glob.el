@@ -1,6 +1,6 @@
-;;; em-glob.el --- extended file name globbing  -*- lexical-binding:t -*-
+;;; em-glob.el --- extended file name globbing
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -49,8 +49,8 @@
 
 ;;; Code:
 
-(require 'esh-util)
 (eval-when-compile (require 'eshell))
+(require 'esh-util)
 
 ;;;###autoload
 (progn
@@ -119,8 +119,7 @@ This option slows down recursive glob processing by quite a bit."
 			     "*" "+")) (+ pos 2))
 	       (cons "*" (1+ pos))))))
   "An alist for translation of extended globbing characters."
-  :type '(alist :key-type character
-		:value-type (choice string function))
+  :type '(repeat (cons character (choice regexp function)))
   :group 'eshell-glob)
 
 ;;; Functions:
@@ -180,8 +179,6 @@ interpretation."
 		(goto-char (1+ end))))))))))
 
 (defvar eshell-glob-chars-regexp nil)
-(defvar eshell-glob-matches)
-(defvar message-shown)
 
 (defun eshell-glob-regexp (pattern)
   "Convert glob-pattern PATTERN to a regular expression.
@@ -232,8 +229,6 @@ resulting regular expression."
 	    (regexp-quote (substring pattern matched-in-pattern))
 	    "\\'")))
 
-(defvar ange-cache)			; XEmacs?  See esh-util
-
 (defun eshell-extended-glob (glob)
   "Return a list of files generated from GLOB, perhaps looking for DIRS-ONLY.
 This function almost fully supports zsh style filename generation
@@ -265,6 +260,9 @@ the form:
 	(if eshell-error-if-no-glob
 	    (error "No matches found: %s" glob)
 	  glob))))
+
+(defvar eshell-glob-matches)
+(defvar message-shown)
 
 ;; FIXME does this really need to abuse eshell-glob-matches, message-shown?
 (defun eshell-glob-entries (path globs &optional recurse-p)

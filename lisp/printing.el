@@ -1,6 +1,6 @@
 ;;; printing.el --- printing utilities
 
-;; Copyright (C) 2000-2001, 2003-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2000-2001, 2003-2013 Free Software Foundation, Inc.
 
 ;; Author: Vinicius Jose Latorre <viniciusjl@ig.com.br>
 ;; Maintainer: Vinicius Jose Latorre <viniciusjl@ig.com.br>
@@ -1030,7 +1030,7 @@ Please send all bug fixes and enhancements to
 
 
 (defconst pr-cygwin-system
-  (and lpr-windows-system (getenv "OSTYPE")
+  (and ps-windows-system (getenv "OSTYPE")
        (string-match "cygwin" (getenv "OSTYPE"))))
 
 
@@ -1342,10 +1342,6 @@ Used by `pr-menu-bind' and `pr-update-menus'.")
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; GNU Emacs Definitions
 
-(eval-and-compile
-  (unless (featurep 'xemacs)
-    (defvar pr-menu-bar nil
-      "Specify Printing menu-bar entry.")))
 
 (cond
  ((featurep 'xemacs)			; XEmacs
@@ -1376,6 +1372,9 @@ Used by `pr-menu-bind' and `pr-update-menus'.")
   (defun pr-menu-char-width ()
     (frame-char-width))
 
+  (defvar pr-menu-bar nil
+    "Specify Printing menu-bar entry.")
+
   ;; GNU Emacs
   ;; Menu binding
   ;; Replace existing "print" item by "Printing" item.
@@ -1383,10 +1382,6 @@ Used by `pr-menu-bind' and `pr-update-menus'.")
   ;; third... time, but "print" item exists only in the first load.
   (eval-when-compile
     (require 'easymenu))		; to avoid compilation gripes
-
-  (declare-function easy-menu-add-item "easymenu"
-                    (map path item &optional before))
-  (declare-function easy-menu-remove-item "easymenu" (map path name))
 
   (eval-and-compile
       (defun pr-global-menubar (pr-menu-spec)
@@ -1414,7 +1409,7 @@ Used by `pr-menu-bind' and `pr-update-menus'.")
 
   (eval-and-compile
     (cond
-     (lpr-windows-system
+     (ps-windows-system
       ;; GNU Emacs for Windows 9x/NT
       (defun pr-menu-position (entry index horizontal)
 	(let ((pos (cdr (mouse-pixel-position))))
@@ -1614,7 +1609,7 @@ Used by `pr-menu-bind' and `pr-update-menus'.")
   "Ensure the proper directory separator depending on the OS.
 That is, if Emacs is running on DOS/Windows, ensure dos/windows-style directory
 separator; otherwise, ensure unix-style directory separator."
-  (if (or pr-cygwin-system lpr-windows-system)
+  (if (or pr-cygwin-system ps-windows-system)
       (subst-char-in-string ?/ ?\\ path)
     (subst-char-in-string ?\\ ?/ path)))
 
@@ -1667,7 +1662,7 @@ separator; otherwise, ensure unix-style directory separator."
 
 (defcustom pr-path-style
   (if (and (not pr-cygwin-system)
-	   lpr-windows-system)
+	   ps-windows-system)
       'windows
     'unix)
   "Specify which path style to use for external commands.
@@ -1778,7 +1773,7 @@ function (see it for documentation) to update text printer menu."
 (defcustom pr-txt-printer-alist
   (list (list 'default lpr-command nil
 	      (cond ((boundp 'printer-name) printer-name)
-		    (lpr-windows-system "PRN")
+		    (ps-windows-system "PRN")
 		    (t nil)
 		    )))
   ;; Examples:
@@ -1801,7 +1796,7 @@ The alist element has the form:
 Where:
 
 SYMBOL		It's a symbol to identify a text printer.  It's for
-		setting option `pr-txt-name' and for menu selection.
+		`pr-txt-name' variable setting and for menu selection.
 		Examples:
 			'prt_06a
 			'my_printer
@@ -1923,8 +1918,8 @@ function (see it for documentation) to update PostScript printer menu."
 
 (defcustom pr-ps-printer-alist
   (list (list 'default lpr-command nil
-	      (cond (lpr-windows-system  nil)
-		    (lpr-lp-system       "-d")
+	      (cond (ps-windows-system  nil)
+		    (ps-lp-system       "-d")
 		    (t                  "-P"))
 	      (or (getenv "PRINTER") (getenv "LPDEST") ps-printer-name)))
   ;; Examples:
@@ -1952,7 +1947,7 @@ The alist element has the form:
 Where:
 
 SYMBOL		It's a symbol to identify a PostScript printer.  It's for
-		setting option `pr-ps-name' and for menu selection.
+		`pr-ps-name' variable setting and for menu selection.
 		Examples:
 			'prt_06a
 			'my_printer
@@ -2200,7 +2195,7 @@ Useful links:
      ;; hacked from `temporary-file-directory' variable in files.el
      (file-name-as-directory
       (or (getenv "TMPDIR") (getenv "TMP") (getenv "TEMP")
-	  (cond (lpr-windows-system "c:/temp")
+	  (cond (ps-windows-system "c:/temp")
 		(t "/tmp")
 		)))))
   "Specify a directory for temporary files during printing.
@@ -2232,7 +2227,7 @@ See also `pr-temp-dir' and `pr-ps-temp-file'."
 
 
 (defcustom pr-gv-command
-  (if lpr-windows-system
+  (if ps-windows-system
       "gsview32.exe"
     "gv")
   "Specify path and name of the gsview/gv utility.
@@ -2273,7 +2268,7 @@ Useful links:
 
 
 (defcustom pr-gs-command
-  (if lpr-windows-system
+  (if ps-windows-system
       "gswin32.exe"
     "gs")
   "Specify path and name of the ghostscript utility.
@@ -2299,7 +2294,7 @@ Useful links:
 
 
 (defcustom pr-gs-switches
-  (if lpr-windows-system
+  (if ps-windows-system
       '("-q -dNOPAUSE -Ic:/gs/gs5.50;c:/gs/gs5.50/fonts")
     '("-q -dNOPAUSE -I/usr/share/ghostscript/5.10"))
   "Specify ghostscript switches.  See the documentation on GS for more info.
@@ -2341,7 +2336,7 @@ Useful links:
 
 
 (defcustom pr-gs-device
-  (if lpr-windows-system
+  (if ps-windows-system
       "mswinpr2"
     "uniprint")
   "Specify the ghostscript device switch value (-sDEVICE=).
@@ -2936,9 +2931,9 @@ INHERITS	Specify the inheritance for SYMBOL group.  It's a symbol name
 
 		The example above has two setting groups: no-duplex and
 		no-duplex-and-landscape.  When setting no-duplex is activated
-		through `inherits-from:' (see option `pr-ps-utility',
-		`pr-mode-alist' and `pr-ps-printer-alist'), the variables
-		pr-file-duplex and pr-file-tumble are both set to nil.
+		through `inherits-from:' (see `pr-ps-utility', `pr-mode-alist'
+		and `pr-ps-printer-alist'), the variables pr-file-duplex and
+		pr-file-tumble are both set to nil.
 
 		Now when setting no-duplex-and-landscape is activated through
 		`inherits-from:', the variable pr-file-landscape is set to nil
@@ -4627,21 +4622,21 @@ bottom."
 
 
 ;;;###autoload
-(defun pr-customize (&rest _ignore)
+(defun pr-customize (&rest ignore)
   "Customization of the `printing' group."
   (interactive)
   (customize-group 'printing))
 
 
 ;;;###autoload
-(defun lpr-customize (&rest _ignore)
+(defun lpr-customize (&rest ignore)
   "Customization of the `lpr' group."
   (interactive)
   (customize-group 'lpr))
 
 
 ;;;###autoload
-(defun pr-help (&rest _ignore)
+(defun pr-help (&rest ignore)
   "Help for the printing package."
   (interactive)
   (pr-show-setup pr-help-message "*Printing Help*"))
@@ -4675,21 +4670,21 @@ bottom."
 
 
 ;;;###autoload
-(defun pr-show-ps-setup (&rest _ignore)
+(defun pr-show-ps-setup (&rest ignore)
   "Show current ps-print settings."
   (interactive)
   (pr-show-setup (ps-setup) "*PS Setup*"))
 
 
 ;;;###autoload
-(defun pr-show-pr-setup (&rest _ignore)
+(defun pr-show-pr-setup (&rest ignore)
   "Show current printing settings."
   (interactive)
   (pr-show-setup (pr-setup) "*PR Setup*"))
 
 
 ;;;###autoload
-(defun pr-show-lpr-setup (&rest _ignore)
+(defun pr-show-lpr-setup (&rest ignore)
   "Show current lpr settings."
   (interactive)
   (pr-show-setup (lpr-setup) "*LPR Setup*"))
@@ -4852,8 +4847,8 @@ Or choose the menu option Printing/Show Settings/printing."
       (ps-comment-string "pr-ps-printer-switch" pr-ps-printer-switch)
       (ps-comment-string "pr-ps-printer       " pr-ps-printer)
       (ps-comment-string "pr-cygwin-system    " pr-cygwin-system)
-      (ps-comment-string "lpr-windows-system   " lpr-windows-system)
-      (ps-comment-string "lpr-lp-system        " lpr-lp-system)
+      (ps-comment-string "ps-windows-system   " ps-windows-system)
+      (ps-comment-string "ps-lp-system        " ps-lp-system)
       nil
       '(14 . pr-path-style)
       '(14 . pr-path-alist)
@@ -5235,14 +5230,14 @@ If menu binding was not done, calls `pr-menu-bind'."
 	  pr-ps-printer        (nth 3 ps))
     (or (stringp pr-ps-command)
 	(setq pr-ps-command
-	      (cond (lpr-windows-system "print")
-		    (lpr-lp-system      "lp")
+	      (cond (ps-windows-system "print")
+		    (ps-lp-system      "lp")
 		    (t                 "lpr")
 		    )))
     (or (stringp pr-ps-printer-switch)
 	(setq pr-ps-printer-switch
-	      (cond (lpr-windows-system "/D:")
-		    (lpr-lp-system      "-d")
+	      (cond (ps-windows-system "/D:")
+		    (ps-lp-system      "-d")
 		    (t                 "-P")
 		    )))
     (pr-eval-alist (nthcdr 4 ps)))
@@ -5260,8 +5255,8 @@ If menu binding was not done, calls `pr-menu-bind'."
 	  pr-txt-printer  (nth 2 txt)))
   (or (stringp pr-txt-command)
       (setq pr-txt-command
-	    (cond (lpr-windows-system "print")
-		  (lpr-lp-system      "lp")
+	    (cond (ps-windows-system "print")
+		  (ps-lp-system      "lp")
 		  (t                 "lpr")
 		  )))
   (pr-update-mode-line))
@@ -5667,7 +5662,7 @@ If menu binding was not done, calls `pr-menu-bind'."
 (defun pr-switches (switches mess)
   (or (listp switches)
       (error "%S should have a list of strings" mess))
-  (lpr-flatten-list			; dynamic evaluation
+  (ps-flatten-list			; dynamic evaluation
    (mapcar 'ps-eval-switch switches)))
 
 
@@ -5825,7 +5820,7 @@ If menu binding was not done, calls `pr-menu-bind'."
 
 (defun pr-find-buffer-visiting (file)
   (if (not (file-directory-p file))
-      (find-buffer-visiting (if lpr-windows-system
+      (find-buffer-visiting (if ps-windows-system
 				(downcase file)
 			      file))
     (let ((truename (file-truename file))
@@ -5939,7 +5934,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
     (pr-dosify-file-name
      (or (pr-find-command command)
 	 (pr-path-command (cond (pr-cygwin-system  'cygwin)
-				(lpr-windows-system 'windows)
+				(ps-windows-system 'windows)
 				(t                 'unix))
 			  (file-name-nondirectory command)
 			  nil)
@@ -5976,7 +5971,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
 
 
 (defun pr-find-command (cmd)
-  (if lpr-windows-system
+  (if ps-windows-system
       ;; windows system
       (let ((ext (cons (file-name-extension cmd t)
 		       (list ".exe" ".bat" ".com")))
@@ -6084,8 +6079,6 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
   (and pr-i-region			; let region activated
        (pr-keep-region-active)))
 
-(declare-function widget-field-action "wid-edit" (widget &optional _event))
-(declare-function widget-value-set "wid-edit" (widget value))
 
 (defun pr-insert-section-1 ()
   ;; 1. Print:
@@ -6125,7 +6118,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
        (pr-insert-checkbox
 	"\n               "
 	'pr-i-region
-	#'(lambda (widget &rest _ignore)
+	#'(lambda (widget &rest ignore)
 	    (let ((region-p (pr-interface-save
 			     (ps-mark-active-p))))
 	      (cond ((null (widget-value widget)) ; widget is nil
@@ -6146,7 +6139,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
        (pr-insert-checkbox
 	"    "
 	'pr-i-mode
-	#'(lambda (widget &rest _ignore)
+	#'(lambda (widget &rest ignore)
 	    (let ((mode-p (pr-interface-save
 			   (pr-mode-alist-p))))
 	      (cond
@@ -6182,7 +6175,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
   (widget-create 'regexp
 		 :size 58
 		 :format "\n      File Regexp : %v\n"
-		 :notify (lambda (widget &rest _ignore)
+		 :notify (lambda (widget &rest ignore)
 			   (setq pr-i-regexp (widget-value widget)))
 		 pr-i-regexp)
   ;;    1b. Directory: List Directory Entry
@@ -6222,7 +6215,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
        (pr-insert-checkbox
 	"    "
 	'pr-i-despool
-	#'(lambda (widget &rest _ignore)
+	#'(lambda (widget &rest ignore)
 	    (if pr-spool-p
 		(setq pr-i-despool (not pr-i-despool))
 	      (ding)
@@ -6259,7 +6252,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
    'integer
    :size 3
    :format "\n  N-Up : %v"
-   :notify (lambda (widget &rest _ignore)
+   :notify (lambda (widget &rest ignore)
 	     (let ((value (if (string= (widget-apply widget :value-get) "")
 			      0
 			    (widget-value widget))))
@@ -6288,7 +6281,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
   ;; 4. Settings:
   ;; 4. Settings: Landscape             Auto Region    Verbose
   (pr-insert-checkbox "\n\n  " 'ps-landscape-mode
-		      #'(lambda (&rest _ignore)
+		      #'(lambda (&rest ignore)
 			  (setq ps-landscape-mode (not ps-landscape-mode)
 				pr-file-landscape ps-landscape-mode))
 		      " Landscape             ")
@@ -6310,7 +6303,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
   (pr-insert-toggle 'ps-zebra-stripes " Zebra Stripes")
   (pr-insert-checkbox "         "
 		      'pr-spool-p
-		      #'(lambda (&rest _ignore)
+		      #'(lambda (&rest ignore)
 			  (setq pr-spool-p (not pr-spool-p))
 			  (unless pr-spool-p
 			    (setq pr-i-despool nil)
@@ -6320,7 +6313,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
   ;; 4. Settings: Duplex                Print with faces
   (pr-insert-checkbox "\n  "
 		      'ps-spool-duplex
-		      #'(lambda (&rest _ignore)
+		      #'(lambda (&rest ignore)
 			  (setq ps-spool-duplex (not ps-spool-duplex)
 				pr-file-duplex  ps-spool-duplex))
 		      " Duplex                ")
@@ -6329,7 +6322,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
   ;; 4. Settings: Tumble                Print via Ghostscript
   (pr-insert-checkbox "\n  "
 		      'ps-spool-tumble
-		      #'(lambda (&rest _ignore)
+		      #'(lambda (&rest ignore)
 			  (setq ps-spool-tumble (not ps-spool-tumble)
 				pr-file-tumble  ps-spool-tumble))
 		      " Tumble                ")
@@ -6352,7 +6345,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
   ;; 5. Customize:
   (pr-insert-italic "\n\nCustomize     :   " 2 11)
   (pr-insert-button 'pr-customize "printing" "   ")
-  (pr-insert-button #'(lambda (&rest _ignore) (ps-print-customize))
+  (pr-insert-button #'(lambda (&rest ignore) (ps-print-customize))
 		    "ps-print" "   ")
   (pr-insert-button 'lpr-customize "lpr"))
 
@@ -6374,7 +6367,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
   (pr-insert-button 'pr-kill-help "Kill All Printing Help Buffer"))
 
 
-(defun pr-kill-help (&rest _ignore)
+(defun pr-kill-help (&rest ignore)
   "Kill all printing help buffer."
   (interactive)
   (let ((help '("*Printing Interface Help*" "*Printing Help*"
@@ -6388,20 +6381,20 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
   (recenter (- (window-height) 2)))
 
 
-(defun pr-interface-quit (&rest _ignore)
+(defun pr-interface-quit (&rest ignore)
   "Kill the printing buffer interface and quit."
   (interactive)
   (kill-buffer pr-buffer-name)
   (set-window-configuration pr-i-window-configuration))
 
 
-(defun pr-interface-help (&rest _ignore)
+(defun pr-interface-help (&rest ignore)
   "printing buffer interface help."
   (interactive)
   (pr-show-setup pr-interface-help-message "*Printing Interface Help*"))
 
 
-(defun pr-interface-txt-print (&rest _ignore)
+(defun pr-interface-txt-print (&rest ignore)
   "Print using lpr package."
   (interactive)
   (condition-case data
@@ -6433,7 +6426,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
      (message "%s" (error-message-string data)))))
 
 
-(defun pr-interface-printify (&rest _ignore)
+(defun pr-interface-printify (&rest ignore)
   "Printify a buffer."
   (interactive)
   (condition-case data
@@ -6458,7 +6451,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
      (message "%s" (error-message-string data)))))
 
 
-(defun pr-interface-ps-print (&rest _ignore)
+(defun pr-interface-ps-print (&rest ignore)
   "Print using ps-print package."
   (interactive)
   (pr-interface-ps 'pr-despool-ps-print 'pr-ps-directory-ps-print
@@ -6467,7 +6460,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
 		   'pr-ps-buffer-ps-print))
 
 
-(defun pr-interface-preview (&rest _ignore)
+(defun pr-interface-preview (&rest ignore)
   "Preview a PostScript file."
   (interactive)
   (pr-interface-ps 'pr-despool-preview 'pr-ps-directory-preview
@@ -6548,7 +6541,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
       (error "Please specify be a readable directory")))
 
 
-(defun pr-interface-directory (widget &rest _ignore)
+(defun pr-interface-directory (widget &rest ignore)
   (and pr-buffer-verbose
        (message "You can use M-TAB or ESC TAB for file completion"))
   (let ((dir (widget-value widget)))
@@ -6557,7 +6550,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
 	 (setq pr-i-directory dir))))
 
 
-(defun pr-interface-infile (widget &rest _ignore)
+(defun pr-interface-infile (widget &rest ignore)
   (and pr-buffer-verbose
        (message "You can use M-TAB or ESC TAB for file completion"))
   (let ((file (widget-value widget)))
@@ -6566,7 +6559,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
 	 (setq pr-i-ps-file file))))
 
 
-(defun pr-interface-outfile (widget &rest _ignore)
+(defun pr-interface-outfile (widget &rest ignore)
   (setq pr-i-answer-yes nil)
   (and pr-buffer-verbose
        (message "You can use M-TAB or ESC TAB for file completion"))
@@ -6602,7 +6595,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
 
 (defun pr-insert-toggle (var-sym label)
   (widget-create 'checkbox
-		 :notify `(lambda (&rest _ignore)
+		 :notify `(lambda (&rest ignore)
 			    (setq ,var-sym (not ,var-sym)))
 		 (symbol-value var-sym))
   (widget-insert label))
@@ -6623,7 +6616,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
 			:format "%v"
 			:inline t
 			:value ,var-sym
-			:notify (lambda (widget &rest _ignore)
+			:notify (lambda (widget &rest ignore)
 				  (setq ,var-sym (widget-value widget))
 				  ,@body)
 			:void '(choice-item :format "%[%t%]"
@@ -6639,7 +6632,7 @@ COMMAND.exe, COMMAND.bat and COMMAND.com in this order."
 		     'radio-button
 		     :format "  %[%v%]"
 		     :value (eq ,var-sym (quote ,sym))
-		     :notify (lambda (&rest _ignore)
+		     :notify (lambda (&rest ignore)
 			       (setq ,var-sym (quote ,sym))
 			       (pr-update-radio-button (quote ,var-sym)))))))
     (put var-sym 'pr-widget-list (cons (cons wid sym) wid-list))))

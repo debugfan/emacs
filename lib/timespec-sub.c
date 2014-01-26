@@ -1,6 +1,6 @@
 /* Subtract two struct timespec values.
 
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2013 Free Software Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -18,8 +18,8 @@
 /* Written by Paul Eggert.  */
 
 /* Return the difference between two timespec values A and B.  On
-   overflow, return an extremal value.  This assumes 0 <= tv_nsec <
-   TIMESPEC_RESOLUTION.  */
+   overflow, return an extremal value.  This assumes 0 <= tv_nsec <=
+   999999999.  */
 
 #include <config.h>
 #include "timespec.h"
@@ -29,6 +29,7 @@
 struct timespec
 timespec_sub (struct timespec a, struct timespec b)
 {
+  struct timespec r;
   time_t rs = a.tv_sec;
   time_t bs = b.tv_sec;
   int ns = a.tv_nsec - b.tv_nsec;
@@ -36,7 +37,7 @@ timespec_sub (struct timespec a, struct timespec b)
 
   if (ns < 0)
     {
-      rns = ns + TIMESPEC_RESOLUTION;
+      rns = ns + 1000000000;
       if (rs == TYPE_MINIMUM (time_t))
         {
           if (bs <= 0)
@@ -58,11 +59,13 @@ timespec_sub (struct timespec a, struct timespec b)
       else
         {
           rs = TYPE_MAXIMUM (time_t);
-          rns = TIMESPEC_RESOLUTION - 1;
+          rns = 999999999;
         }
     }
   else
     rs -= bs;
 
-  return make_timespec (rs, rns);
+  r.tv_sec = rs;
+  r.tv_nsec = rns;
+  return r;
 }

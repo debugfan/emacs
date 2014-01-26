@@ -1,6 +1,6 @@
 ;;; mail-source.el --- functions for fetching mail
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: news, mail
@@ -63,7 +63,7 @@
 This variable is a list of mail source specifiers.
 See Info node `(gnus)Mail Source Specifiers'."
   :group 'mail-source
-  :version "24.4"
+  :version "23.1" ;; No Gnus
   :link '(custom-manual "(gnus)Mail Source Specifiers")
   :type `(choice
 	  (const :tag "None" nil)
@@ -159,18 +159,7 @@ See Info node `(gnus)Mail Source Specifiers'."
 						   :value nil
 						   (const :tag "Clear" nil)
 						   (const starttls)
-						   (const :tag "SSL/TLS" ssl)))
-				    (group :inline t
-					   (const :format "" :value :leave)
-					   (choice :format "\
-%{Leave mail on server%}:\n\t\t%[Value Menu%] %v"
-						   :value nil
-						   (const :tag "\
-Don't leave mails" nil)
-						   (const :tag "\
-Leave all mails" t)
-						   (number :tag "\
-Leave mails for this many days" :value 14)))))
+						   (const :tag "SSL/TLS" ssl)))))
 		   (cons :tag "Maildir (qmail, postfix...)"
 			 (const :format "" maildir)
 			 (checklist :tag "Options" :greedy t
@@ -351,8 +340,7 @@ Common keywords should be listed here.")
        (:function)
        (:password)
        (:authentication password)
-       (:stream nil)
-       (:leave))
+       (:stream nil))
       (maildir
        (:path (or (getenv "MAILDIR") "~/Maildir/"))
        (:subdirs ("cur" "new"))
@@ -809,10 +797,6 @@ Deleting old (> %s day(s)) incoming mail file `%s'." diff bfile)
      prescript-delay)
     (let ((from (format "%s:%s:%s" server user port))
 	  (mail-source-string (format "pop:%s@%s" user server))
-	  (process-environment (if server
-				   (cons (concat "MAILHOST=" server)
-					 process-environment)
-				 process-environment))
 	  result)
       (when (eq authentication 'password)
 	(setq password
@@ -820,6 +804,8 @@ Deleting old (> %s day(s)) incoming mail file `%s'." diff bfile)
 		  (cdr (assoc from mail-source-password-cache))
 		  (read-passwd
 		   (format "Password for %s at %s: " user server)))))
+      (when server
+	(setenv "MAILHOST" server))
       (setq result
 	    (cond
 	     (program
@@ -839,8 +825,7 @@ Deleting old (> %s day(s)) incoming mail file `%s'." diff bfile)
 		    (pop3-port port)
 		    (pop3-authentication-scheme
 		     (if (eq authentication 'apop) 'apop 'pass))
-		    (pop3-stream-type stream)
-		    (pop3-leave-mail-on-server leave))
+		    (pop3-stream-type stream))
 		(if (or debug-on-quit debug-on-error)
 		    (save-excursion (pop3-movemail mail-source-crash-box))
 		  (condition-case err
@@ -879,10 +864,6 @@ Deleting old (> %s day(s)) incoming mail file `%s'." diff bfile)
   (mail-source-bind (pop source)
     (let ((from (format "%s:%s:%s" server user port))
 	  (mail-source-string (format "pop:%s@%s" user server))
-	  (process-environment (if server
-				   (cons (concat "MAILHOST=" server)
-					 process-environment)
-				 process-environment))
 	  result)
       (when (eq authentication 'password)
 	(setq password
@@ -892,6 +873,8 @@ Deleting old (> %s day(s)) incoming mail file `%s'." diff bfile)
 		   (format "Password for %s at %s: " user server))))
 	(unless (assoc from mail-source-password-cache)
 	  (push (cons from password) mail-source-password-cache)))
+      (when server
+	(setenv "MAILHOST" server))
       (setq result
 	    (cond
 	     ;; No easy way to check whether mail is waiting for these.

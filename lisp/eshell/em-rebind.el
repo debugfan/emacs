@@ -1,6 +1,6 @@
-;;; em-rebind.el --- rebind keys when point is at current input  -*- lexical-binding:t -*-
+;;; em-rebind.el --- rebind keys when point is at current input
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -23,7 +23,6 @@
 
 ;;; Code:
 
-(require 'esh-mode)
 (eval-when-compile (require 'eshell))
 
 ;;;###autoload
@@ -218,7 +217,7 @@ lock it at that."
 	(cdar bindings))
       (setq bindings (cdr bindings)))))
 
-(defun eshell-delete-backward-char (n)
+(defun eshell-delete-backward-char (n &optional killflag)
   "Delete the last character, unless it's part of the output."
   (interactive "P")
   (let ((count (prefix-numeric-value n)))

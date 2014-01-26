@@ -1,6 +1,6 @@
 ;;; autoinsert.el --- automatic mode-dependent insertion of text into new files
 
-;; Copyright (C) 1985-1987, 1994-1995, 1998, 2000-2014 Free Software
+;; Copyright (C) 1985-1987, 1994-1995, 1998, 2000-2013 Free Software
 ;; Foundation, Inc.
 
 ;; Author: Charlie Martin <crm@cs.duke.edu>
@@ -164,10 +164,7 @@ If this contains a %s, that will be replaced by the matching rule."
 
     (("\\.el\\'" . "Emacs Lisp header")
      "Short description: "
-     ";;; " (file-name-nondirectory (buffer-file-name)) " --- " str
-     (make-string (max 2 (- 80 (current-column) 27)) ?\s)
-     "-*- lexical-binding: t; -*-" '(setq lexical-binding t)
-     "
+     ";;; " (file-name-nondirectory (buffer-file-name)) " --- " str "
 
 ;; Copyright (C) " (format-time-string "%Y") "  "
  (getenv "ORGANIZATION") | (progn user-full-name) "

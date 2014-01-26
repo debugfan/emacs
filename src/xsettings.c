@@ -1,6 +1,6 @@
 /* Functions for handling font and other changes dynamically.
 
-Copyright (C) 2009-2014 Free Software Foundation, Inc.
+Copyright (C) 2009-2013 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -22,9 +22,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 #include <float.h>
 #include <limits.h>
 #include <fcntl.h>
-
-#include <byteswap.h>
-
 #include "lisp.h"
 #include "xterm.h"
 #include "xsettings.h"
@@ -173,7 +170,7 @@ enum {
   SEEN_HINTSTYLE  = 0x10,
   SEEN_DPI        = 0x20,
   SEEN_FONT       = 0x40,
-  SEEN_TB_STYLE   = 0x80
+  SEEN_TB_STYLE   = 0x80,
 };
 struct xsettings
 {
@@ -339,6 +336,9 @@ get_prop_window (struct x_display_info *dpyinfo)
   XUngrabServer (dpy);
 }
 
+#define SWAP32(nr) (((nr) << 24) | (((nr) << 8) & 0xff0000)     \
+                    | (((nr) >> 8) & 0xff00) | ((nr) >> 24))
+#define SWAP16(nr) (((nr) << 8) | ((nr) >> 8))
 #define PAD(nr)    (((nr) + 3) & ~3)
 
 /* Parse xsettings and extract those that deal with Xft.
@@ -393,7 +393,7 @@ get_prop_window (struct x_display_info *dpyinfo)
 
 static int
 parse_settings (unsigned char *prop,
-                unsigned long bytes,
+                long unsigned int bytes,
                 struct xsettings *settings)
 {
   Lisp_Object byteorder = Fbyteorder ();
@@ -408,7 +408,7 @@ parse_settings (unsigned char *prop,
 
   if (bytes < 12) return BadLength;
   memcpy (&n_settings, prop+8, 4);
-  if (my_bo != that_bo) n_settings = bswap_32 (n_settings);
+  if (my_bo != that_bo) n_settings = SWAP32 (n_settings);
   bytes_parsed = 12;
 
   memset (settings, 0, sizeof (*settings));
@@ -430,7 +430,7 @@ parse_settings (unsigned char *prop,
 
       memcpy (&nlen, prop+bytes_parsed, 2);
       bytes_parsed += 2;
-      if (my_bo != that_bo) nlen = bswap_16 (nlen);
+      if (my_bo != that_bo) nlen = SWAP16 (nlen);
       if (bytes_parsed+nlen > bytes) return BadLength;
       to_cpy = nlen > 127 ? 127 : nlen;
       memcpy (name, prop+bytes_parsed, to_cpy);
@@ -457,7 +457,7 @@ parse_settings (unsigned char *prop,
           if (want_this)
             {
               memcpy (&ival, prop+bytes_parsed, 4);
-              if (my_bo != that_bo) ival = bswap_32 (ival);
+              if (my_bo != that_bo) ival = SWAP32 (ival);
             }
           bytes_parsed += 4;
           break;
@@ -466,7 +466,7 @@ parse_settings (unsigned char *prop,
           if (bytes_parsed+4 > bytes) return BadLength;
           memcpy (&vlen, prop+bytes_parsed, 4);
           bytes_parsed += 4;
-          if (my_bo != that_bo) vlen = bswap_32 (vlen);
+          if (my_bo != that_bo) vlen = SWAP32 (vlen);
           if (want_this)
             {
               to_cpy = vlen > 127 ? 127 : vlen;
@@ -673,21 +673,26 @@ apply_xft_settings (struct x_display_info *dpyinfo,
   if ((settings->seen & SEEN_DPI) != 0 && oldsettings.dpi != settings->dpi
       && settings->dpi > 0)
     {
+      Lisp_Object frame, tail;
+
       FcPatternDel (pat, FC_DPI);
       FcPatternAddDouble (pat, FC_DPI, settings->dpi);
       ++changed;
       oldsettings.dpi = settings->dpi;
 
-      /* Changing the DPI on this display affects all frames on it.
-	 Check FRAME_RES_X and FRAME_RES_Y in frame.h to see how.  */
+      /* Change the DPI on this display and all frames on the display.  */
       dpyinfo->resy = dpyinfo->resx = settings->dpi;
+      FOR_EACH_FRAME (tail, frame)
+        if (FRAME_X_P (XFRAME (frame))
+            && FRAME_X_DISPLAY_INFO (XFRAME (frame)) == dpyinfo)
+          XFRAME (frame)->resy = XFRAME (frame)->resx = settings->dpi;
     }
 
   if (changed)
     {
       static char const format[] =
 	"Antialias: %d, Hinting: %d, RGBA: %d, LCDFilter: %d, "
-	"Hintstyle: %d, DPI: %f";
+	"Hintstyle: %d, DPI: %lf";
       enum
       {
 	d_formats = 5,
@@ -696,7 +701,7 @@ apply_xft_settings (struct x_display_info *dpyinfo,
 	max_f_integer_digits = DBL_MAX_10_EXP + 1,
 	f_precision = 6,
 	lf_growth = (sizeof "-." + max_f_integer_digits + f_precision
-		     - sizeof "%f")
+		     - sizeof "%lf")
       };
       char buf[sizeof format + d_formats * d_growth + lf_formats * lf_growth];
 
@@ -754,9 +759,10 @@ read_and_apply_settings (struct x_display_info *dpyinfo, int send_event_p)
 /* Check if EVENT for the display in DPYINFO is XSettings related.  */
 
 void
-xft_settings_event (struct x_display_info *dpyinfo, const XEvent *event)
+xft_settings_event (struct x_display_info *dpyinfo, XEvent *event)
 {
-  bool check_window_p = 0, apply_settings_p = 0;
+  int check_window_p = 0;
+  int apply_settings = 0;
 
   switch (event->type)
     {
@@ -776,7 +782,7 @@ xft_settings_event (struct x_display_info *dpyinfo, const XEvent *event)
       if (event->xproperty.window == dpyinfo->xsettings_window
           && event->xproperty.state == PropertyNewValue
           && event->xproperty.atom == dpyinfo->Xatom_xsettings_prop)
-        apply_settings_p = 1;
+        apply_settings = 1;
       break;
     }
 
@@ -786,10 +792,10 @@ xft_settings_event (struct x_display_info *dpyinfo, const XEvent *event)
       dpyinfo->xsettings_window = None;
       get_prop_window (dpyinfo);
       if (dpyinfo->xsettings_window != None)
-        apply_settings_p = 1;
+        apply_settings = 1;
     }
 
-  if (apply_settings_p)
+  if (apply_settings)
     read_and_apply_settings (dpyinfo, True);
 }
 
@@ -803,7 +809,7 @@ init_gsettings (void)
   const gchar *const *schemas;
   int schema_found = 0;
 
-#if ! GLIB_CHECK_VERSION (2, 36, 0)
+#ifdef HAVE_G_TYPE_INIT
   g_type_init ();
 #endif
 
@@ -860,7 +866,7 @@ init_gconf (void)
 #if defined (HAVE_GCONF)
   char *s;
 
-#if ! GLIB_CHECK_VERSION (2, 36, 0)
+#ifdef HAVE_G_TYPE_INIT
   g_type_init ();
 #endif
 

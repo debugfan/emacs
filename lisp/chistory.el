@@ -1,6 +1,6 @@
 ;;; chistory.el --- list command history
 
-;; Copyright (C) 1985, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: K. Shane Hartman
 ;; Maintainer: FSF
@@ -121,9 +121,7 @@ The buffer is left in Command History mode."
 	  (error "No command history")
 	(command-history-mode)))))
 
-(define-obsolete-variable-alias 'command-history-map
-  'command-history-mode-map "24.1")
-(defvar command-history-mode-map
+(defvar command-history-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map lisp-mode-shared-map)
     (suppress-keymap map)
@@ -134,11 +132,21 @@ The buffer is left in Command History mode."
     map)
   "Keymap for `command-history-mode'.")
 
-(define-derived-mode command-history-mode fundamental-mode "Command History"
+(defun command-history-mode ()
   "Major mode for listing and repeating recent commands.
 
 Keybindings:
-\\{command-history-mode-map}"
+\\{command-history-map}"
+  (interactive)
+  (Command-history-setup)
+  (setq major-mode 'command-history-mode)
+  (setq mode-name "Command History")
+  (use-local-map command-history-map)
+  (run-mode-hooks 'command-history-mode-hook))
+
+(defun Command-history-setup ()
+  (kill-all-local-variables)
+  (use-local-map command-history-map)
   (lisp-mode-variables nil)
   (set-syntax-table emacs-lisp-mode-syntax-table)
   (setq buffer-read-only t))

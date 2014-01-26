@@ -1,11 +1,11 @@
 ;;; ebnf-bnf.el --- parser for EBNF
 
-;; Copyright (C) 1999-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 ;; Author: Vinicius Jose Latorre <viniciusjl@ig.com.br>
 ;; Maintainer: Vinicius Jose Latorre <viniciusjl@ig.com.br>
 ;; Keywords: wp, ebnf, PostScript
-;; Old-Version: 1.10
+;; Version: 1.10
 ;; Package: ebnf2ps
 
 ;; This file is part of GNU Emacs.

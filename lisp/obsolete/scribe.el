@@ -1,6 +1,6 @@
 ;;; scribe.el --- scribe mode, and its idiosyncratic commands
 
-;; Copyright (C) 1985, 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 2001-2013 Free Software Foundation, Inc.
 
 ;; Author: William Sommerfeld
 ;; (according to ack.texi)
@@ -144,9 +144,7 @@ Interesting variables:
   (set (make-local-variable 'sentence-end)
        "\\([.?!]\\|@:\\)[]\"')}]*\\($\\| $\\|\t\\|  \\)[ \t\n]*")
   (set (make-local-variable 'compile-command)
-       (concat "scribe "
-	       (if buffer-file-name
-		   (shell-quote-argument (buffer-file-name))))))
+       (concat "scribe " (buffer-file-name))))
 
 (defun scribe-tab ()
   (interactive)

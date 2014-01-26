@@ -1,6 +1,6 @@
 ;;; erc-speedbar.el --- Speedbar support for ERC
 
-;; Copyright (C) 2001-2004, 2006-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2001-2004, 2006-2013 Free Software Foundation, Inc.
 
 ;; Author: Mario Lang <mlang@delysid.org>
 ;; Contributor: Eric M. Ludlam <eric@siege-engine.com>
@@ -38,6 +38,7 @@
 (require 'erc)
 (require 'speedbar)
 (condition-case nil (require 'dframe) (error nil))
+(eval-when-compile (require 'cl))
 
 ;;; Customization:
 

@@ -1,6 +1,6 @@
 ;; gnus-notifications.el -- Send notification on new message in Gnus
 
-;; Copyright (C) 2012-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2013 Free Software Foundation, Inc.
 
 ;; Author: Julien Danjou <julien@danjou.info>
 ;; Keywords: news
@@ -64,8 +64,7 @@ not get notifications."
 
 (defcustom gnus-notifications-timeout nil
   "Timeout used for notifications sent via `notifications-notify'."
-  :type '(choice (const :tag "Server default" nil)
-                 (integer :tag "Milliseconds"))
+  :type 'integer
   :group 'gnus-notifications)
 
 (defvar gnus-notifications-sent nil
@@ -92,12 +91,12 @@ Return a notification id if any, or t on success."
        :body subject
        :actions '("read" "Read")
        :on-action 'gnus-notifications-action
-       :app-icon (or photo-file
-                     (gnus-funcall-no-warning
-                      'image-search-load-path "gnus/gnus.png"))
+       :app-icon (gnus-funcall-no-warning
+		  'image-search-load-path "gnus/gnus.png")
        :app-name "Gnus"
        :category "email.arrived"
-       :timeout gnus-notifications-timeout)
+       :timeout gnus-notifications-timeout
+       :image-path photo-file)
     (message "New message from %s: %s" from subject)
     ;; Don't return an id
     t))

@@ -20,11 +20,10 @@
 @c @footnotestyle separate
 @c @paragraphindent 2
 @c @@smallbook
-@documentencoding UTF-8
 @c %**end of header
 
 @copying
-Copyright @copyright{} 1988--1993, 1995, 1998--2004, 2007, 2012--2014
+Copyright @copyright{} 1988--1993, 1995, 1998--2004, 2007, 2012--2013
 Free Software Foundation, Inc.
 
 @c Since we are both GNU manuals, we do not need to ack each other here.
@@ -114,6 +113,9 @@ of GNU Bison 1.28 & 1.31.
 
 For more details on the basic concepts for understanding Wisent, it is
 worthwhile to read the @ref{Top, Bison Manual, , bison}.
+@ifhtml
+@uref{http://www.gnu.org/manual/bison/html_node/index.html}.
+@end ifhtml
 
 Wisent can generate compilers compatible with the @semantic{} tool set.
 See the @ref{Top, Semantic Manual, , semantic}.
@@ -131,11 +133,10 @@ June 1985, Report No. UCB/CSD 85/251.
 
 @item
 For generating the lookahead sets, Wisent uses the well-known
-technique of F. DeRemer and T. Pennello described in:
+technique of F. DeRemer and A. Pennello they described in:
 @quotation
-@cite{Efficient Computation of LALR(1) Look-Ahead Sets}@*
-October 1982, ACM TOPLAS Vol 4 No 4, 615--49,
-@uref{http://dx.doi.org/10.1145/69622.357187}.
+@cite{Efficient Construction of LALR(1) Lookahead Sets}@*
+October 1982, ACM TOPLS Vol 4 No 4.
 @end quotation
 
 @item
@@ -223,7 +224,8 @@ in between, can be combined into a larger grouping of type @samp{exp}.
 * Conflicts::
 @end menu
 
-@node Grammar format
+@node Grammar format, Example, Wisent Grammar, Wisent Grammar
+@comment  node-name,  next,  previous,  up
 @section Grammar format
 
 @cindex grammar format
@@ -281,7 +283,7 @@ For example,
 
 Says that two groupings of type @samp{exp}, with a @samp{+} token in
 between, can be combined into a larger grouping of type @samp{exp}.
-
+ 
 @cindex grammar coding conventions
 By convention, a nonterminal symbol should be in lower case, such as
 @samp{exp}, @samp{stmt} or @samp{declaration}.  Terminal symbols
@@ -441,7 +443,8 @@ matching the empty string, for which the default action is to return
 @end table
 @end table
 
-@node Example
+@node Example, Compiling a grammar, Grammar format, Wisent Grammar
+@comment  node-name,  next,  previous,  up
 @section Example
 
 @cindex grammar example
@@ -556,7 +559,8 @@ exp:
 @end group
 @end example
 
-@node Compiling a grammar
+@node Compiling a grammar, Conflicts, Example, Wisent Grammar
+@comment  node-name,  next,  previous,  up
 @section Compiling a grammar
 
 @cindex automaton
@@ -614,7 +618,8 @@ an Emacs Lisp function (lambda expression).
 @end table
 @end defun
 
-@node Conflicts
+@node Conflicts, , Compiling a grammar, Wisent Grammar
+@comment  node-name,  next,  previous,  up
 @section Conflicts
 
 Normally, a grammar should produce an automaton where at each state
@@ -1209,7 +1214,7 @@ data type.
 
 @item start
 @itemx end
-Are the optional beginning and ending positions of @var{value} in the
+Are the optionals beginning and end positions of @var{value} in the
 input stream.
 @end table
 
@@ -1332,8 +1337,8 @@ of the current statement if an error is detected:
 
 @example
 @group
-(statement (( error ?; )) ;; on error, skip until ';' is read
-           )
+(stmnt (( error ?; )) ;; on error, skip until ';' is read
+       )
 @end group
 @end example
 
@@ -1601,7 +1606,7 @@ it can be worth a mix of the two styles!
 * Useful functions::
 @end menu
 
-@node Iterative style
+@node Iterative style, Bison style, Grammar styles, Grammar styles
 @subsection Iterative style
 
 @cindex grammar iterative style

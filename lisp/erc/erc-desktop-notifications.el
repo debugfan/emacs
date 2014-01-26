@@ -1,6 +1,6 @@
 ;; erc-desktop-notifications.el -- Send notification on PRIVMSG or mentions
 
-;; Copyright (C) 2012-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2013 Free Software Foundation, Inc.
 
 ;; Author: Julien Danjou <julien@danjou.info>
 ;; Keywords: comm
@@ -44,9 +44,7 @@
 (defcustom erc-notifications-icon nil
   "Icon to use for notification."
   :group 'erc-notifications
-  :type '(choice (const :tag "No icon" nil) file))
-
-(defvar dbus-debug) ; used in the macroexpansion of dbus-ignore-errors
+  :type 'file)
 
 (defun erc-notifications-notify (nick msg)
   "Notify that NICK send some MSG.

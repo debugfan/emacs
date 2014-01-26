@@ -1,4 +1,4 @@
-/* Copyright (C) 1985-1988, 1992-1994, 2001-2014 Free Software
+/* Copyright (C) 1985-1988, 1992-1994, 2001-2013 Free Software
  * Foundation, Inc.
 
 This file is part of GNU Emacs.
@@ -52,7 +52,6 @@ along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <config.h>
 #include "unexec.h"
-#include "lisp.h"
 
 #define PERROR(file) report_error (file, new)
 
@@ -100,7 +99,7 @@ struct aouthdr
 
 #include <sys/file.h>
 
-extern int etext;
+#include "mem-limits.h"
 
 static long block_copy_start;		/* Old executable start point */
 static struct filehdr f_hdr;		/* File header */
@@ -127,10 +126,9 @@ static int pagemask;
 static void
 report_error (const char *file, int fd)
 {
-  int err = errno;
   if (fd)
-    emacs_close (fd);
-  report_file_errno ("Cannot unexec", build_string (file), err);
+    close (fd);
+  report_file_error ("Cannot unexec", Fcons (build_string (file), Qnil));
 }
 
 #define ERROR0(msg) report_error_1 (new, msg, 0, 0); return -1
@@ -140,7 +138,7 @@ report_error (const char *file, int fd)
 static void
 report_error_1 (int fd, const char *msg, int a1, int a2)
 {
-  emacs_close (fd);
+  close (fd);
   error (msg, a1, a2);
 }
 
@@ -170,7 +168,7 @@ make_hdr (int new, int a_out,
   pagemask = getpagesize () - 1;
 
   /* Adjust text/data boundary. */
-  data_start = (int) DATA_START;
+  data_start = (int) start_of_data ();
   data_start = ADDR_CORRECT (data_start);
   data_start = data_start & ~pagemask; /* (Down) to page boundary. */
 
@@ -335,7 +333,11 @@ write_segment (int new, const char *ptr, const char *end)
 	 a gap between the old text segment and the old data segment.
 	 This gap has probably been remapped into part of the text segment.
 	 So write zeros for it.  */
-      if (ret == -1 && errno == EFAULT)
+      if (ret == -1
+#ifdef EFAULT
+	  && errno == EFAULT
+#endif
+	  )
 	{
 	  /* Write only a page of zeros at once,
 	     so that we don't overshoot the start
@@ -488,7 +490,7 @@ adjust_lnnoptrs (int writedesc, int readdesc, const char *new_name)
 #ifdef MSDOS
   if ((new = writedesc) < 0)
 #else
-  if ((new = emacs_open (new_name, O_RDWR, 0)) < 0)
+  if ((new = open (new_name, O_RDWR)) < 0)
 #endif
     {
       PERROR (new_name);
@@ -512,7 +514,7 @@ adjust_lnnoptrs (int writedesc, int readdesc, const char *new_name)
 	}
     }
 #ifndef MSDOS
-  emacs_close (new);
+  close (new);
 #endif
   return 0;
 }
@@ -527,11 +529,11 @@ unexec (const char *new_name, const char *a_name)
 {
   int new = -1, a_out = -1;
 
-  if (a_name && (a_out = emacs_open (a_name, O_RDONLY, 0)) < 0)
+  if (a_name && (a_out = open (a_name, O_RDONLY)) < 0)
     {
       PERROR (a_name);
     }
-  if ((new = emacs_open (new_name, O_WRONLY | O_CREAT | O_TRUNC, 0666)) < 0)
+  if ((new = creat (new_name, 0666)) < 0)
     {
       PERROR (new_name);
     }
@@ -542,13 +544,13 @@ unexec (const char *new_name, const char *a_name)
       || adjust_lnnoptrs (new, a_out, new_name) < 0
       )
     {
-      emacs_close (new);
+      close (new);
       return;
     }
 
-  emacs_close (new);
+  close (new);
   if (a_out >= 0)
-    emacs_close (a_out);
+    close (a_out);
   mark_x (new_name);
 }
 
