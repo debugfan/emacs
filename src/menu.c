@@ -1112,6 +1112,18 @@ no quit occurs and `x-popup-menu' returns nil.  */)
 	    x = Fcar (tem);
 	    y = Fcdr (tem);
 	  }
+      
+#define FIX_POPUP_MENU_XY_OFFSET
+#ifdef FIX_POPUP_MENU_XY_OFFSET		
+        if(1)
+        {
+            Lisp_Object edge, inside_edge;
+            edge = Fwindow_pixel_edges(window);
+            inside_edge = Fwindow_inside_pixel_edges(window);
+            x += (Fcar(inside_edge) - Fcar(edge));
+            y += (Fcar(Fcdr(inside_edge)) - Fcar(Fcdr(edge)));
+        }
+#endif
 
 	/* If a click happens in an external tool bar or a detached
 	   tool bar, x and y is NIL.  In that case, use the current

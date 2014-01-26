@@ -3896,7 +3896,8 @@ w32_wnd_proc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	POINT *pos;
 	int retval;
 	pos = (POINT *)lParam;
-	flags = TPM_CENTERALIGN;
+	//flags = TPM_CENTERALIGN;
+    flags = TPM_LEFTALIGN;
 	if (button_state & LMOUSE)
 	  flags |= TPM_LEFTBUTTON;
 	else if (button_state & RMOUSE)
