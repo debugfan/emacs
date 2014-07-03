@@ -1115,13 +1115,19 @@ no quit occurs and `x-popup-menu' returns nil.  */)
       
 #define FIX_POPUP_MENU_XY_OFFSET
 #ifdef FIX_POPUP_MENU_XY_OFFSET		
-        if(1)
+        if(NILP(window) || (WINDOWP (window) 
+            && (!NILP (XWINDOW (window)->buffer) 
+                || !NILP (XWINDOW (window)->vchild) 
+                || !NILP (XWINDOW (window)->hchild))))
         {
             Lisp_Object edge, inside_edge;
             edge = Fwindow_pixel_edges(window);
             inside_edge = Fwindow_inside_pixel_edges(window);
-            x += (Fcar(inside_edge) - Fcar(edge));
-            y += (Fcar(Fcdr(inside_edge)) - Fcar(Fcdr(edge)));
+            if(edge != NULL && inside_edge != NULL)
+            {
+                x += (Fcar(inside_edge) - Fcar(edge));
+                y += (Fcar(Fcdr(inside_edge)) - Fcar(Fcdr(edge)));
+            }
         }
 #endif
 

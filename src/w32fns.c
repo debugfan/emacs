@@ -3902,7 +3902,7 @@ w32_wnd_proc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	  flags |= TPM_LEFTBUTTON;
 	else if (button_state & RMOUSE)
 	  flags |= TPM_RIGHTBUTTON;
-
+    
 	/* Remember we did a SetCapture on the initial mouse down event,
 	   so for safety, we make sure the capture is canceled now.  */
 	ReleaseCapture ();
